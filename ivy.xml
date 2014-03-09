@@ -25,7 +25,7 @@
        status="release" 
        publication="20101111120000">
         <description homepage="http://www.jocean.org">
-          jocean : common
+          jocean : syncfsm
         </description>
     </info>
     <configurations>
