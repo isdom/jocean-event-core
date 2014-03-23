@@ -85,6 +85,22 @@ public class SyncFSMUtils {
 		@Override
 		public Object invoke(final Object proxy, final Method method, final Object[] args)
 				throws Throwable {
+			// An invocation of the hashCode, equals, or toString methods declared in java.lang.Object 
+			//	on a proxy instance will be encoded and dispatched to the invocation handler's invoke 
+			//	method in the same manner as interface method invocations are encoded and dispatched, 
+			//	as described above. The declaring class of the Method object passed to invoke will be 
+			//	java.lang.Object. Other public methods of a proxy instance inherited from java.lang.Object 
+			//	are not overridden by a proxy class, so invocations of those methods behave like they do 
+			//	for instances of java.lang.Object.			
+			if ( method.getName().equals("hashCode") ) {
+				return	this._receiver.hashCode();
+			}
+			else if (method.getName().equals("equals") ) {
+				return	(proxy == args[0]);
+			}
+			else if (method.getName().equals("toString") ) {
+				return	this._receiver.toString();
+			}
 			final OnEvent onevent = method.getAnnotation(OnEvent.class);
 			final String eventName = (null != onevent) ? onevent.event() : method.getName();
 //			if ( null == onevent ) {
