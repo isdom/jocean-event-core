@@ -85,10 +85,11 @@ public class SyncFSMUtils {
 		public Object invoke(final Object proxy, final Method method, final Object[] args)
 				throws Throwable {
 			final OnEvent onevent = method.getAnnotation(OnEvent.class);
-			if ( null == onevent ) {
-				throw new UnsupportedOperationException("method [" + method.getName() + "] has no OnEvent annotation, can't generate event");
-			}
-			boolean isAccepted = _receiver.acceptEvent(onevent.event(), args);
+			final String eventName = (null != onevent) ? onevent.event() : method.getName();
+//			if ( null == onevent ) {
+//				throw new UnsupportedOperationException("method [" + method.getName() + "] has no OnEvent annotation, can't generate event");
+//			}
+			boolean isAccepted = _receiver.acceptEvent(eventName, args);
 			if ( method.getReturnType().equals(Boolean.class)
 				|| method.getReturnType().equals(boolean.class)) {
 				return isAccepted;
