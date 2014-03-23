@@ -7,7 +7,7 @@
 
     <!--设置下面要用到的属性-->
     <property name="module.name" value="${ant.project.name}" />
-    <property name="module.version" value="0.0.5" />
+    <property name="module.version" value="0.0.6" />
 
     <property name="devconf.url" value="https://raw.github.com/isdom/devsetup/master/devconf/" />
     <property name="lib.buildfile" value="build-lib.xml" />
