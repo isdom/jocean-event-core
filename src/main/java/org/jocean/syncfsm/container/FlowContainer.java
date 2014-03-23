@@ -20,8 +20,8 @@ import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.EventHandlerAware;
 import org.jocean.syncfsm.api.EventNameAware;
 import org.jocean.syncfsm.api.EventReceiver;
-import org.jocean.syncfsm.api.EventReceiverAware;
 import org.jocean.syncfsm.api.EventReceiverSource;
+import org.jocean.syncfsm.api.FlowLifecycleAware;
 import org.jocean.syncfsm.api.FlowSource;
 import org.jocean.syncfsm.common.FlowStateChangeListener;
 import org.jocean.syncfsm.common.FlowTracker;
@@ -100,13 +100,13 @@ public class FlowContainer {
 		final FlowContextImpl ctx = initFlowCtx(flow, initHandler);
 		final EventReceiver	newReceiver = genEventReceiverWithCtx(ctx);
 		
-		if ( flow instanceof EventReceiverAware ) {
+		if ( flow instanceof FlowLifecycleAware ) {
 			try {
-				((EventReceiverAware)flow).setEventReceiver(newReceiver);
+				((FlowLifecycleAware)flow).afterEventReceiverCreated(newReceiver);
 			}
 			catch (Exception e) {
-				LOG.error("exception when setEventReceiver: receiver {} to flow {}, detail: {}",
-						new Object[]{newReceiver, flow, ExceptionUtils.exception2detail(e)});
+				LOG.error("exception when invoke flow {}'s afterEventReceiverCreated, detail: {}",
+						flow, ExceptionUtils.exception2detail(e));
 			}
 		}
 		
@@ -188,6 +188,17 @@ public class FlowContainer {
 		}
 		
 		incDealCompletedCount();
+		
+		if ( ctx.getFlow() instanceof FlowLifecycleAware ) {
+			final FlowLifecycleAware flow = (FlowLifecycleAware)ctx.getFlow();
+			try {
+				flow.afterFlowDestroy();
+			}
+			catch (Exception e) {
+				LOG.error("exception when invoke flow {}'s afterFlowDestroy, detail: {}",
+						flow, ExceptionUtils.exception2detail(e));
+			}
+		}
 
 		_flowStateChangeListenerSupport.foreachComponent(new Visitor<FlowStateChangeListener>() {
 

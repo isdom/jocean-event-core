@@ -68,7 +68,7 @@ public class SyncFSMUtils {
 	}
 	
 	@SuppressWarnings("unchecked")
-	public static <INTF> INTF buildInterfaceAdapter(final Class<?> intf, final EventReceiver receiver) {
+	public static <INTF> INTF buildInterfaceAdapter(final Class<INTF> intf, final EventReceiver receiver) {
 		return (INTF)Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), 
 				new Class<?>[]{intf}, new ReceiverAdapterHandler(receiver));
 	}

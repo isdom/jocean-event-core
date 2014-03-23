@@ -8,5 +8,5 @@ package org.jocean.syncfsm.api;
  *
  */
 public interface EventNameAware {
-	public void setEventName(final String event);
+	public void setEventName(final String event) throws Exception;
 }
