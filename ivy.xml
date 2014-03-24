@@ -42,10 +42,10 @@
     <dependencies>
     
 		<dependency org="org.jocean" name="jocean-idiom" 
-			rev="0.0.2" conf="compile->default(*)" />
+			rev="0.0.3" conf="compile->default(*)" />
 			
 		<dependency org="org.slf4j" name="slf4j-api" 
-			rev="1.6.1" conf="compile->default(*)" />
+			rev="1.7.6" conf="compile->default(*)" />
 			
     </dependencies>
 </ivy-module>
