@@ -3,13 +3,10 @@
  */
 package org.jocean.syncfsm.container;
 
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
@@ -21,14 +18,17 @@ import org.jocean.syncfsm.api.EventHandlerAware;
 import org.jocean.syncfsm.api.EventNameAware;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
+import org.jocean.syncfsm.api.ExectionLoop;
 import org.jocean.syncfsm.api.FlowLifecycleAware;
 import org.jocean.syncfsm.api.FlowSource;
 import org.jocean.syncfsm.common.FlowStateChangeListener;
 import org.jocean.syncfsm.common.FlowTracker;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
- * @author hp
+ * @author isdom
  *
  */
 public class FlowContainer {
@@ -48,14 +48,17 @@ public class FlowContainer {
 
 			@Override
 			public <FLOW> EventReceiver create(final FlowSource<FLOW> source) {
-				return createEventReceiverOf(source);
+		        //  create new receiver
+		        final FLOW flow = source.getFlow();
+		        return  createEventReceiverOf(flow, source.getExectionLoop(flow), source.getInitHandler(flow));
 			}
 
 			@Override
 			public <FLOW> EventReceiver create(
 					final FLOW flow,
+					final ExectionLoop exectionLoop, 
 					final EventHandler initHandler) {
-				return createEventReceiverOf(flow, initHandler);
+				return createEventReceiverOf(flow, exectionLoop, initHandler);
 			}};
 	}
 	
@@ -89,15 +92,10 @@ public class FlowContainer {
 		};
 	}
 
-	private <FLOW> EventReceiver createEventReceiverOf(final FlowSource<FLOW> source) {
+	private <FLOW> EventReceiver createEventReceiverOf(final FLOW flow, 
+	        final ExectionLoop exectionLoop, final EventHandler initHandler) {
 		//	create new receiver
-		final FLOW flow = source.getFlow();
-		return	createEventReceiverOf(flow, source.getInitHandler(flow));
-	}
-	
-	private <FLOW> EventReceiver createEventReceiverOf(final FLOW flow, final EventHandler initHandler) {
-		//	create new receiver
-		final FlowContextImpl ctx = initFlowCtx(flow, initHandler);
+		final FlowContextImpl ctx = initFlowCtx(flow, exectionLoop, initHandler);
 		final EventReceiver	newReceiver = genEventReceiverWithCtx(ctx);
 		
 		if ( flow instanceof FlowLifecycleAware ) {
@@ -150,8 +148,8 @@ public class FlowContainer {
 		return dealBypassCount.get();
 	}
 
-	private FlowContextImpl initFlowCtx(final Object flow, final EventHandler initHandler) {
-		final FlowContextImpl newCtx = createFlowCtx(flow, initHandler);
+	private FlowContextImpl initFlowCtx(final Object flow, final ExectionLoop exectionLoop, final EventHandler initHandler) {
+		final FlowContextImpl newCtx = createFlowCtx(flow, exectionLoop, initHandler);
 		
 		this._flowContexts.add(newCtx);
 		
@@ -220,7 +218,7 @@ public class FlowContainer {
 		}
 	}
 	
-	private boolean dispatchEvent(final FlowContextImpl ctx, final String event, final Object[] args) {
+	private boolean dispatchEventForCtx(final FlowContextImpl ctx, final String event, final Object[] args) {
 		final EventHandler currentHandler = ctx.getCurrentHandler();
 		if ( null == currentHandler ) {
 			LOG.error("Internal Error: current handler is null, remove ctx {}", ctx);
@@ -274,6 +272,15 @@ public class FlowContainer {
 			setCurrentHandlerFor(ctx, newHandler);
 		}
 		
+        try {
+            ctx.endOfDispatchEvent();
+        }
+        catch (Exception e) {
+            LOG.error("exception when ctx({}).endOfDispatchEvent, detail: {}, try end flow", 
+                    ctx, ExceptionUtils.exception2detail(e));
+            destroyFlowCtx(ctx);
+        }
+        
 		return	eventHandled;
 	}
 
@@ -313,8 +320,9 @@ public class FlowContainer {
 
 	private <FLOW> FlowContextImpl createFlowCtx(
 		final FLOW flow,
+        final ExectionLoop exectionLoop,
 		final EventHandler initHandler) {
-		final FlowContextImpl ctx = new FlowContextImpl(flow);
+		final FlowContextImpl ctx = new FlowContextImpl(flow, exectionLoop, this._dispatcher);
 		
 		ctx.isFlowEventNameAware = (flow instanceof EventNameAware);
 		ctx.isFlowEventHandlerAware = (flow instanceof EventHandlerAware);
@@ -335,24 +343,29 @@ public class FlowContainer {
 			final FlowContextImpl ctx,
 			final String 		event, 
 			final Object... 	args) throws Exception {
-		if ( ctx.isDestroyed() ) {
-			LOG.warn("try to processEvent for destroyed flow ctx {}, just ignore.", ctx);
-			return	false;
-		}
-		ctx.checkCurrentThread();
-		try {
-			return dispatchEvent(ctx, event, args);
-		}
-		catch (final Exception e) {
-			LOG.error("exception when ctx {}.processEvent, detail:{}, try end flow", 
-					ctx, ExceptionUtils.exception2detail(e));
-			destroyFlowCtx(ctx);
-			throw e;
-		}
+        try {
+            return ctx.processEvent(event, args);
+        }
+        catch (final Exception e) {
+            LOG.error("exception when ctx {}.processEvent, detail:{}, try end flow", 
+                    ctx, ExceptionUtils.exception2detail(e));
+            destroyFlowCtx(ctx);
+            throw e;
+        }
 	}
 
-	private	final List<FlowContextImpl> _flowContexts = 
-			new CopyOnWriteArrayList<FlowContextImpl>();
+	private final FlowContextImpl.Dispatcher _dispatcher = new FlowContextImpl.Dispatcher() {
+
+        @Override
+        public void dispatchEvent(
+                final FlowContextImpl ctx, 
+                final String event,
+                final Object[] args) {
+            dispatchEventForCtx(ctx, event, args);
+        }};
+        
+	private	final Set<FlowContextImpl> _flowContexts = 
+			new ConcurrentSkipListSet<FlowContextImpl>();
 	
 	private final String		name;
 	private	final int			_id;

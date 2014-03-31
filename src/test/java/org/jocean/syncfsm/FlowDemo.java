@@ -12,8 +12,8 @@ import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.EventReceiver;
+import org.jocean.syncfsm.api.ExectionLoop;
 import org.jocean.syncfsm.api.FlowSource;
-import org.jocean.syncfsm.api.annotion.SameThread;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.container.FlowContainer;
 
@@ -26,8 +26,7 @@ public class FlowDemo {
     private static final Logger LOG = 
     		LoggerFactory.getLogger(FlowDemo.class);
 
-    //@SameThread
-    public class DemoFlow extends AbstractFlow {
+    public class DemoFlow extends AbstractFlow<DemoFlow> {
         final BizStep LOCKED = 
         		new BizStep("LOCKED")
         		.handler( selfInvoker("onCoin") )
@@ -73,7 +72,27 @@ public class FlowDemo {
 		        		.handler( flow.selfInvoker("onCoin") )
 		        		.handler( flow.selfInvoker("onPass") )
 		        		.freeze();
-				}});
+				}
+
+                @Override
+                public ExectionLoop getExectionLoop(final DemoFlow flow) {
+                    return new ExectionLoop() {
+
+                        @Override
+                        public boolean inExectionLoop() {
+                            return true;
+                        }
+
+                        @Override
+                        public void submit(Runnable runnable) {
+                            runnable.run();
+                        }
+
+                        @Override
+                        public void schedule(Runnable runnable, long delayMillis) {
+                            runnable.run();
+                        }};
+                }});
     		
 		new Thread(new Runnable(){
 

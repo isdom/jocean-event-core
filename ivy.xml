@@ -47,5 +47,8 @@
 		<dependency org="org.slf4j" name="slf4j-api" 
 			rev="1.7.6" conf="compile->default(*)" />
 			
-    </dependencies>
+        <dependency org="ch.qos.logback" name="logback-classic" 
+            rev="1.1.1" conf="test->default(*)" />
+        
+	</dependencies>
 </ivy-module>
