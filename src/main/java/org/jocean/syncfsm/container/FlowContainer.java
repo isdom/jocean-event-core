@@ -36,11 +36,11 @@ public class FlowContainer {
     private static final Logger LOG = 
     	LoggerFactory.getLogger(FlowContainer.class);
 
-    private static final AtomicInteger allRunnerCounter = new AtomicInteger(0);
+    private static final AtomicInteger ALL_CONTAINER_COUNTER = new AtomicInteger(0);
     
 	public FlowContainer(final String name) {
     	this.name = ( null != name ? name : super.toString() );	// ensure this.name is not null
-    	this._id = allRunnerCounter.incrementAndGet();
+    	this._id = ALL_CONTAINER_COUNTER.incrementAndGet();
     }
 
 	public EventReceiverSource genEventReceiverSource() {
@@ -50,15 +50,16 @@ public class FlowContainer {
 			public <FLOW> EventReceiver create(final FlowSource<FLOW> source) {
 		        //  create new receiver
 		        final FLOW flow = source.getFlow();
-		        return  createEventReceiverOf(flow, source.getExectionLoop(flow), source.getInitHandler(flow));
+		        return  createEventReceiverOf(flow, source.getInitHandler(flow), source.getExectionLoop(flow));
 			}
 
 			@Override
 			public <FLOW> EventReceiver create(
 					final FLOW flow,
-					final ExectionLoop exectionLoop, 
-					final EventHandler initHandler) {
-				return createEventReceiverOf(flow, exectionLoop, initHandler);
+					final EventHandler initHandler,
+                    final ExectionLoop exectionLoop
+					) {
+				return createEventReceiverOf(flow, initHandler, exectionLoop);
 			}};
 	}
 	
@@ -92,10 +93,13 @@ public class FlowContainer {
 		};
 	}
 
-	private <FLOW> EventReceiver createEventReceiverOf(final FLOW flow, 
-	        final ExectionLoop exectionLoop, final EventHandler initHandler) {
+	private <FLOW> EventReceiver createEventReceiverOf(
+	        final FLOW flow, 
+	        final EventHandler initHandler,
+            final ExectionLoop exectionLoop
+	        ) {
 		//	create new receiver
-		final FlowContextImpl ctx = initFlowCtx(flow, exectionLoop, initHandler);
+		final FlowContextImpl ctx = initFlowCtx(flow, initHandler, exectionLoop);
 		final EventReceiver	newReceiver = genEventReceiverWithCtx(ctx);
 		
 		if ( flow instanceof FlowLifecycleAware ) {
@@ -120,7 +124,15 @@ public class FlowContainer {
 
 			@Override
 			public boolean acceptEvent(final String event, final Object... args) throws Exception {
-				return FlowContainer.this.processEventWithinCtx(ctx, event, args);
+		        try {
+		            return ctx.processEvent(event, args);
+		        }
+		        catch (final Exception e) {
+		            LOG.error("exception when ctx {}.processEvent, detail:{}, try end flow", 
+		                    ctx, ExceptionUtils.exception2detail(e));
+		            destroyFlowCtx(ctx);
+		            throw e;
+		        }
 			}};
 	}
 	
@@ -148,8 +160,12 @@ public class FlowContainer {
 		return dealBypassCount.get();
 	}
 
-	private FlowContextImpl initFlowCtx(final Object flow, final ExectionLoop exectionLoop, final EventHandler initHandler) {
-		final FlowContextImpl newCtx = createFlowCtx(flow, exectionLoop, initHandler);
+	private FlowContextImpl initFlowCtx(
+	        final Object flow, 
+	        final EventHandler initHandler,
+            final ExectionLoop exectionLoop 
+	        ) {
+		final FlowContextImpl newCtx = createFlowCtx(flow, initHandler, exectionLoop);
 		
 		this._flowContexts.add(newCtx);
 		
@@ -262,7 +278,6 @@ public class FlowContainer {
 			//	fire listener to invoke beforeFlowDispatchTo
 			this._flowStateChangeListenerSupport.foreachComponent(
  					new Visitor<FlowStateChangeListener>() {
-
 				@Override
 				public void visit(final FlowStateChangeListener listener)
 						throws Exception {
@@ -320,8 +335,9 @@ public class FlowContainer {
 
 	private <FLOW> FlowContextImpl createFlowCtx(
 		final FLOW flow,
-        final ExectionLoop exectionLoop,
-		final EventHandler initHandler) {
+		final EventHandler initHandler,
+        final ExectionLoop exectionLoop
+		) {
 		final FlowContextImpl ctx = new FlowContextImpl(flow, exectionLoop, this._dispatcher);
 		
 		ctx.isFlowEventNameAware = (flow instanceof EventNameAware);
@@ -333,27 +349,6 @@ public class FlowContainer {
 		return ctx;
 	}
 	
-    /** 
-	 * @param ctx
-	 * @param event
-	 * @param args
-	 * @return
-	 */
-	private boolean processEventWithinCtx(
-			final FlowContextImpl ctx,
-			final String 		event, 
-			final Object... 	args) throws Exception {
-        try {
-            return ctx.processEvent(event, args);
-        }
-        catch (final Exception e) {
-            LOG.error("exception when ctx {}.processEvent, detail:{}, try end flow", 
-                    ctx, ExceptionUtils.exception2detail(e));
-            destroyFlowCtx(ctx);
-            throw e;
-        }
-	}
-
 	private final FlowContextImpl.Dispatcher _dispatcher = new FlowContextImpl.Dispatcher() {
 
         @Override
