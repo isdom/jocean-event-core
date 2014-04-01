@@ -191,8 +191,14 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
 
     private void schedulePendingEvent() {
         if (this._exectionLoop.inExectionLoop()) {
+            if ( LOG.isDebugEnabled()) {
+                LOG.debug("flow {}'s currentHandler({}): schedulePendingEvent in exectionLoop, just invoke direct.", 
+                        this._flow, this._currentHandler.getName());
+            }
             dispatchPendingEvent();
         } else {
+            LOG.debug("flow {}'s currentHandler({}): schedulePendingEvent NOT in exectionLoop, just invoke as submit.", 
+                    this._flow, this._currentHandler.getName());
             this._exectionLoop.submit( this._dispatchPendingRunnable );
         }
     }
@@ -201,6 +207,12 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
         if (hasPendingEvent()) {
             if (setActived()) {
                 schedulePendingEvent();
+            }
+            else {
+                if ( LOG.isDebugEnabled() ) {
+                    LOG.debug("flow {}'s currentHandler({}): already actived, can't schedulePendingEvent", 
+                            this._flow, this._currentHandler.getName());
+                }
             }
         }
     }
@@ -285,7 +297,7 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
 
     private final AtomicBoolean _isAlive = new AtomicBoolean(true);
 
-    private EventHandler _currentHandler = null;
+    private volatile EventHandler _currentHandler = null;
     private Object _reason = null;
     private final Object _flow;
     private final ArgsHandler _argsHandler;
