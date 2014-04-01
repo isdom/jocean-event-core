@@ -140,8 +140,8 @@ public class FlowContainer {
 		            return ctx.processEvent(event, args);
 		        }
 		        catch (final Exception e) {
-		            LOG.error("exception when ctx {}.processEvent, detail:{}, try end flow", 
-		                    ctx, ExceptionUtils.exception2detail(e));
+		            LOG.error("exception when flow {}.processEvent, detail:{}, try end flow", 
+		                    ctx.getFlow(), ExceptionUtils.exception2detail(e));
 		            destroyFlowCtx(ctx);
 		            throw e;
 		        }
@@ -202,7 +202,7 @@ public class FlowContainer {
 			}
 			catch (Exception e) {
 				LOG.error("exception when getEndReason: flow {}, detail: {}",
-						new Object[]{ctx.getFlow(), ExceptionUtils.exception2detail(e)});
+						ctx.getFlow(), ExceptionUtils.exception2detail(e));
 			}
 		}
 		
@@ -210,7 +210,8 @@ public class FlowContainer {
 			ctx.destroy();
 		}
 		catch (Exception e) {
-			LOG.error("[{}]destroyFlowCtx: {}", name, ExceptionUtils.exception2detail(e) );
+			LOG.error("exception when [{}] destroyFlowCtx for flow {}, detail: {}", 
+			        name, ctx.getFlow(), ExceptionUtils.exception2detail(e) );
 		}
 		
 		incDealCompletedCount();
@@ -241,7 +242,7 @@ public class FlowContainer {
 			}
 			catch (Exception e) {
 				LOG.error("exception when setEventName: event {} to flow {}, detail: {}",
-						new Object[]{event, ctx.getFlow(), ExceptionUtils.exception2detail(e)});
+					event, ctx.getFlow(), ExceptionUtils.exception2detail(e));
 			}
 		}
 	}
@@ -249,7 +250,7 @@ public class FlowContainer {
 	private boolean dispatchEventForCtx(final FlowContextImpl ctx, final String event, final Object[] args) {
 		final EventHandler currentHandler = ctx.getCurrentHandler();
 		if ( null == currentHandler ) {
-			LOG.error("Internal Error: current handler is null, remove ctx {}", ctx);
+			LOG.error("Internal Error: current handler is null, remove flow {}", ctx.getFlow());
 			destroyFlowCtx(ctx);
 			return	false;
 		}
@@ -275,7 +276,7 @@ public class FlowContainer {
 		if ( null == nextHandler ) {
 			// handled and next handler is null
 			if ( LOG.isDebugEnabled() ) {
-				LOG.debug("ctx {} will end normally.", ctx);
+				LOG.debug("flow ({}) will end normally.", ctx.getFlow());
 			}
 			
 			destroyFlowCtx(ctx);
@@ -303,8 +304,8 @@ public class FlowContainer {
             ctx.endOfDispatchEvent();
         }
         catch (Exception e) {
-            LOG.error("exception when ctx({}).endOfDispatchEvent, detail: {}, try end flow", 
-                    ctx, ExceptionUtils.exception2detail(e));
+            LOG.error("exception when flow ({}).endOfDispatchEvent, detail: {}, try end flow", 
+                    ctx.getFlow(), ExceptionUtils.exception2detail(e));
             destroyFlowCtx(ctx);
         }
         
@@ -324,7 +325,7 @@ public class FlowContainer {
 			}
 			catch (Exception e) {
 				LOG.error("exception when setEventHandler: handler {} to flow {}, detail: {}",
-						new Object[]{newHandler, ctx.getFlow(), ExceptionUtils.exception2detail(e)});
+					newHandler, ctx.getFlow(), ExceptionUtils.exception2detail(e));
 			}
 		}
 	}
