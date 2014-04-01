@@ -14,9 +14,15 @@ import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.Pair;
 import org.jocean.syncfsm.api.ArgsHandler;
 import org.jocean.syncfsm.api.ArgsHandlerSource;
+import org.jocean.syncfsm.api.EndReasonSource;
 import org.jocean.syncfsm.api.EventHandler;
+import org.jocean.syncfsm.api.EventHandlerAware;
+import org.jocean.syncfsm.api.EventNameAware;
 import org.jocean.syncfsm.api.ExectionLoop;
+import org.jocean.syncfsm.api.ExectionLoopAware;
+import org.jocean.syncfsm.api.FlowLifecycleAware;
 import org.jocean.syncfsm.common.FlowContext;
+import org.jocean.syncfsm.common.FlowStateChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,21 +32,21 @@ import org.slf4j.LoggerFactory;
  */
 class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
 
-    public interface Dispatcher {
-        public void dispatchEvent(final FlowContextImpl ctx, final String event, final Object[] args);
-    }
-    
-    boolean isFlowEventHandlerAware = false;
-    boolean isFlowEventNameAware = false;
-    boolean isFlowHasEndReason = false;
-
     private static final Logger LOG = LoggerFactory
             .getLogger(FlowContextImpl.class);
 
-    public FlowContextImpl(final Object flow, final ExectionLoop exectionLoop, final Dispatcher dispatcher) {
+    public FlowContextImpl(
+            final Object flow, 
+            final ExectionLoop exectionLoop, 
+            final FlowStateChangeListener stateChangeListener) {
         this._flow = flow;
         this._exectionLoop = exectionLoop;
-        this._dispatcher = dispatcher;
+        this._stateChangeListener = stateChangeListener;
+        
+        if (null == this._flow || null == this._exectionLoop) {
+            throw new NullPointerException(
+                    "invalid params: flow or exectionLoop is null");
+        }
         
         if ( this._flow instanceof ArgsHandlerSource ) {
             this._argsHandler = ((ArgsHandlerSource)this._flow).getArgsHandler();
@@ -49,9 +55,18 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
             this._argsHandler = null;
         }
         
-        if (null == this._flow || null == this._exectionLoop) {
-            throw new NullPointerException(
-                    "invalid params: flow or exectionLoop is null");
+        this._isFlowEventNameAware = (this._flow instanceof EventNameAware);
+        this._isFlowEventHandlerAware = (this._flow instanceof EventHandlerAware);
+        this._isFlowHasEndReason = (this._flow instanceof EndReasonSource);
+        
+        if ( this._flow instanceof ExectionLoopAware ) {
+            try {
+                ((ExectionLoopAware)this._flow).setExectionLoop(this._exectionLoop);
+            }
+            catch (Exception e) {
+                LOG.error("exception when invoke flow {}'s setExectionLoop, detail: {}",
+                        this._flow, ExceptionUtils.exception2detail(e));
+            }
         }
     }
 
@@ -86,16 +101,44 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
                 .currentTimeMillis() - _createTime);
     }
 
-    public void setEndReason(final Object reason) {
-        this._reason = reason;
+    // return true means event has been push to event-queue
+    public boolean processEvent(final String event, final Object[] args) throws Exception {
+        if (pushPendingEvent(event, args)) {
+            checkIfSchedulePendingEvent();
+            return true;
+        } else {
+            return false;
+        }
     }
-
-    FlowContextImpl setCurrentHandler(final EventHandler handler) {
+    
+    FlowContextImpl setCurrentHandler(
+            final EventHandler handler, 
+            final String        causeEvent, 
+            final Object[]      causeArgs) {
         if (((this._currentHandler == null) && (handler != null))
                 || ((this._currentHandler != null) && !this._currentHandler
                         .equals(handler))) {
+            if ( null != this._stateChangeListener ) {
+                try {
+                    this._stateChangeListener.beforeFlowChangeTo(this, handler, causeEvent, causeArgs);
+                }
+                catch (Exception e) {
+                    LOG.warn("exception when _stateChangeListener.beforeFlowChangeTo for flow({}) with next handler({}), event({}), detail:{}",
+                            this._flow, handler.getName(), causeEvent, ExceptionUtils.exception2detail(e));
+                }
+            }
             this._currentHandler = handler;
             this._lastModify = System.currentTimeMillis();
+            
+            if ( this._isFlowEventHandlerAware ) {
+                try {
+                    ((EventHandlerAware)this._flow).setEventHandler(handler);
+                }
+                catch (Exception e) {
+                    LOG.error("exception when setEventHandler: handler {} to flow {}, detail: {}",
+                            handler, this._flow, ExceptionUtils.exception2detail(e));
+                }
+            }
         }
         return this;
     }
@@ -115,6 +158,37 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
                 final Pair<String, Object[]> eventAndArgs = iter.next();
                 afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
                 iter.remove();
+            }
+            
+            if ( this._isFlowHasEndReason ) {
+                // fetch end reason
+                try {
+                    this._reason = ( ((EndReasonSource)this._flow).getEndReason() );
+                }
+                catch (Exception e) {
+                    LOG.error("exception when getEndReason: flow {}, detail: {}",
+                            this._flow, ExceptionUtils.exception2detail(e));
+                }
+            }
+            
+            if ( null != this._stateChangeListener ) {
+                try {
+                    this._stateChangeListener.afterFlowDestroy(this);
+                }
+                catch (Exception e) {
+                    LOG.warn("exception when _stateChangeListener.afterFlowDestroy for flow({}), detail:{}",
+                            this._flow, ExceptionUtils.exception2detail(e));
+                }
+            }
+            
+            if ( this._flow instanceof FlowLifecycleAware ) {
+                try {
+                    ((FlowLifecycleAware)this._flow).afterFlowDestroy();
+                }
+                catch (Exception e) {
+                    LOG.error("exception when invoke flow {}'s afterFlowDestroy, detail: {}",
+                            this._flow, ExceptionUtils.exception2detail(e));
+                }
             }
         }
     }
@@ -153,7 +227,7 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
 
         if (null != eventAndArgs) {
             try {
-                this._dispatcher.dispatchEvent(this, 
+                this.dispatchEvent(
                         eventAndArgs.getFirst(),
                         eventAndArgs.getSecond());
             } catch (Exception e) {
@@ -263,18 +337,75 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
         }
     }
 
-    public void endOfDispatchEvent() throws Exception {
+    private void endOfDispatchEvent() throws Exception {
         setUnactive();
         checkIfSchedulePendingEvent();
     }
 
-    // return true means event has been push to event-queue
-    public boolean processEvent(final String event, final Object[] args) throws Exception {
-        if (pushPendingEvent(event, args)) {
-            checkIfSchedulePendingEvent();
-            return true;
-        } else {
-            return false;
+    private boolean dispatchEvent(final String event, final Object[] args) {
+        final EventHandler currentHandler = this.getCurrentHandler();
+        if ( null == currentHandler ) {
+            LOG.error("Internal Error: current handler is null, remove flow {}", this._flow);
+            this.destroy();
+            return  false;
+        }
+        
+        setCurrentAcceptedEvent(event);
+        
+        EventHandler nextHandler = null;
+        boolean     eventHandled = false;
+
+        try {
+            Pair<EventHandler, Boolean> result = currentHandler.process(event, args);
+            nextHandler = result.getFirst();
+            eventHandled = result.getSecond();
+        }
+        catch (Exception e) {
+            LOG.error("exception when {}.acceptEvent, detail:{}", 
+                currentHandler.getName(), 
+                ExceptionUtils.exception2detail(e));
+        }
+        finally {
+            setCurrentAcceptedEvent(null);
+        }
+        
+        if ( null == nextHandler ) {
+            // handled and next handler is null
+            if ( LOG.isDebugEnabled() ) {
+                LOG.debug("flow ({}) will end normally.", this._flow);
+            }
+            
+            this.destroy();
+            return  eventHandled;
+        }
+        else if ( currentHandler.equals( nextHandler ) ) {
+            // no change
+        }
+        else {
+            setCurrentHandler(nextHandler, event, args);
+        }
+        
+        try {
+            this.endOfDispatchEvent();
+        }
+        catch (Exception e) {
+            LOG.error("exception when flow ({}).endOfDispatchEvent, detail: {}, try end flow", 
+                    this._flow, ExceptionUtils.exception2detail(e));
+            this.destroy();
+        }
+        
+        return  eventHandled;
+    }
+    
+    private void setCurrentAcceptedEvent(final String event) {
+        if ( this._isFlowEventNameAware ) {
+            try {
+                ((EventNameAware)this._flow).setEventName(event);
+            }
+            catch (Exception e) {
+                LOG.error("exception when setEventName: event {} to flow {}, detail: {}",
+                    event, this._flow, ExceptionUtils.exception2detail(e));
+            }
         }
     }
     
@@ -284,7 +415,11 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
         }
     };
     
-    private final Dispatcher _dispatcher;
+    private final boolean _isFlowEventHandlerAware;
+    private final boolean _isFlowEventNameAware;
+    private final boolean _isFlowHasEndReason;
+
+    private final FlowStateChangeListener _stateChangeListener;
     
     private final AtomicBoolean _isActive = new AtomicBoolean(false);
 

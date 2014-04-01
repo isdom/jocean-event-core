@@ -11,12 +11,12 @@ import org.jocean.syncfsm.api.EventHandler;
  */
 public interface FlowStateChangeListener {
 	
-	public void beforeFlowDispatchTo(
-			final EventHandler 	nextHandler, 
+	public void beforeFlowChangeTo(
 			final FlowContext 	ctx, 
+            final EventHandler  nextHandler, 
 			final String 		causeEvent, 
-			final Object[] 		causeArgs);
+			final Object[] 		causeArgs) throws Exception;
 	
-	public void afterFlowDestroy(final FlowContext ctx);
+	public void afterFlowDestroy(final FlowContext ctx) throws Exception;
 }
   

@@ -10,18 +10,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
-import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
-import org.jocean.syncfsm.api.EndReasonSource;
 import org.jocean.syncfsm.api.EventHandler;
-import org.jocean.syncfsm.api.EventHandlerAware;
-import org.jocean.syncfsm.api.EventNameAware;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
 import org.jocean.syncfsm.api.ExectionLoop;
-import org.jocean.syncfsm.api.ExectionLoopAware;
 import org.jocean.syncfsm.api.FlowLifecycleAware;
 import org.jocean.syncfsm.api.FlowSource;
+import org.jocean.syncfsm.common.FlowContext;
 import org.jocean.syncfsm.common.FlowStateChangeListener;
 import org.jocean.syncfsm.common.FlowTracker;
 import org.slf4j.Logger;
@@ -102,16 +98,6 @@ public class FlowContainer {
 		//	create new receiver
 		final FlowContextImpl ctx = initFlowCtx(flow, initHandler, exectionLoop);
 		
-        if ( flow instanceof ExectionLoopAware ) {
-            try {
-                ((ExectionLoopAware)flow).setExectionLoop(exectionLoop);
-            }
-            catch (Exception e) {
-                LOG.error("exception when invoke flow {}'s setExectionLoop, detail: {}",
-                        flow, ExceptionUtils.exception2detail(e));
-            }
-        }
-        
         final EventReceiver newReceiver = genEventReceiverWithCtx(ctx);
         
 		if ( flow instanceof FlowLifecycleAware ) {
@@ -142,7 +128,7 @@ public class FlowContainer {
 		        catch (final Exception e) {
 		            LOG.error("exception when flow {}.processEvent, detail:{}, try end flow", 
 		                    ctx.getFlow(), ExceptionUtils.exception2detail(e));
-		            destroyFlowCtx(ctx);
+		            ctx.destroy();
 		            throw e;
 		        }
 			}};
@@ -189,145 +175,20 @@ public class FlowContainer {
 		return	newCtx;
 	}
 	
-	private void destroyFlowCtx(final FlowContextImpl ctx) {
+	private void onFlowCtxDestroyed(final FlowContextImpl ctx) {
 		if ( this._flowContexts.remove(ctx) ) {
 			//	移除操作有效
 			this.totalFlowCount.decrementAndGet();
 		}
 		
-		if ( ctx.isFlowHasEndReason ) {
-			// fetch end reason
-			try {
-				ctx.setEndReason( ((EndReasonSource)ctx.getFlow()).getEndReason() );
-			}
-			catch (Exception e) {
-				LOG.error("exception when getEndReason: flow {}, detail: {}",
-						ctx.getFlow(), ExceptionUtils.exception2detail(e));
-			}
-		}
-		
-		try {
-			ctx.destroy();
-		}
-		catch (Exception e) {
-			LOG.error("exception when [{}] destroyFlowCtx for flow {}, detail: {}", 
-			        name, ctx.getFlow(), ExceptionUtils.exception2detail(e) );
-		}
-		
 		incDealCompletedCount();
 		
-		if ( ctx.getFlow() instanceof FlowLifecycleAware ) {
-			final FlowLifecycleAware flow = (FlowLifecycleAware)ctx.getFlow();
-			try {
-				flow.afterFlowDestroy();
-			}
-			catch (Exception e) {
-				LOG.error("exception when invoke flow {}'s afterFlowDestroy, detail: {}",
-						flow, ExceptionUtils.exception2detail(e));
-			}
-		}
-
 		_flowStateChangeListenerSupport.foreachComponent(new Visitor<FlowStateChangeListener>() {
 
 			@Override
 			public void visit(final FlowStateChangeListener listener) throws Exception {
 				listener.afterFlowDestroy(ctx);
 			}});
-	}
-
-	private void setCurrentAcceptedEventFor(final FlowContextImpl ctx, final String event) {
-		if ( ctx.isFlowEventNameAware ) {
-			try {
-				((EventNameAware)ctx.getFlow()).setEventName(event);
-			}
-			catch (Exception e) {
-				LOG.error("exception when setEventName: event {} to flow {}, detail: {}",
-					event, ctx.getFlow(), ExceptionUtils.exception2detail(e));
-			}
-		}
-	}
-	
-	private boolean dispatchEventForCtx(final FlowContextImpl ctx, final String event, final Object[] args) {
-		final EventHandler currentHandler = ctx.getCurrentHandler();
-		if ( null == currentHandler ) {
-			LOG.error("Internal Error: current handler is null, remove flow {}", ctx.getFlow());
-			destroyFlowCtx(ctx);
-			return	false;
-		}
-		
-		setCurrentAcceptedEventFor(ctx, event);
-		
-		EventHandler nextHandler = null;
-		boolean		eventHandled = false;
-
-		try {
-			Pair<EventHandler, Boolean> result = currentHandler.process(event, args);
-			nextHandler = result.getFirst();
-			eventHandled = result.getSecond();
-		}
-		catch (Exception e) {
-			LOG.error("exception when {}.acceptEvent, detail:{}", ctx.getCurrentHandler(), 
-					ExceptionUtils.exception2detail(e));
-		}
-		finally {
-			setCurrentAcceptedEventFor(ctx, null);
-		}
-		
-		if ( null == nextHandler ) {
-			// handled and next handler is null
-			if ( LOG.isDebugEnabled() ) {
-				LOG.debug("flow ({}) will end normally.", ctx.getFlow());
-			}
-			
-			destroyFlowCtx(ctx);
-			return	eventHandled;
-		}
-		else if ( ctx.getCurrentHandler().equals( nextHandler ) ) {
-			// no change
-		}
-		else {
-			final EventHandler newHandler = nextHandler;
-			
-			//	fire listener to invoke beforeFlowDispatchTo
-			this._flowStateChangeListenerSupport.foreachComponent(
- 					new Visitor<FlowStateChangeListener>() {
-				@Override
-				public void visit(final FlowStateChangeListener listener)
-						throws Exception {
-					listener.beforeFlowDispatchTo(newHandler, ctx, event, args);
-				}});
-			
-			setCurrentHandlerFor(ctx, newHandler);
-		}
-		
-        try {
-            ctx.endOfDispatchEvent();
-        }
-        catch (Exception e) {
-            LOG.error("exception when flow ({}).endOfDispatchEvent, detail: {}, try end flow", 
-                    ctx.getFlow(), ExceptionUtils.exception2detail(e));
-            destroyFlowCtx(ctx);
-        }
-        
-		return	eventHandled;
-	}
-
-	/**
-	 * @param ctx
-	 * @param newHandler
-	 */
-	private void setCurrentHandlerFor(final FlowContextImpl ctx,
-			final EventHandler newHandler) {
-		ctx.setCurrentHandler(newHandler);
-		if ( ctx.isFlowEventHandlerAware ) {
-			try {
-				((EventHandlerAware)ctx.getFlow()).setEventHandler(newHandler);
-			}
-			catch (Exception e) {
-				LOG.error("exception when setEventHandler: handler {} to flow {}, detail: {}",
-					newHandler, ctx.getFlow(), ExceptionUtils.exception2detail(e));
-			}
-		}
 	}
 
 	private void incDealHandledCount() {
@@ -351,27 +212,39 @@ public class FlowContainer {
 		final EventHandler initHandler,
         final ExectionLoop exectionLoop
 		) {
-		final FlowContextImpl ctx = new FlowContextImpl(flow, exectionLoop, this._dispatcher);
+		final FlowContextImpl ctx = new FlowContextImpl(flow, exectionLoop, this._flowStateChangeListener);
 		
-		ctx.isFlowEventNameAware = (flow instanceof EventNameAware);
-		ctx.isFlowEventHandlerAware = (flow instanceof EventHandlerAware);
-		ctx.isFlowHasEndReason = (flow instanceof EndReasonSource);
-		
-		setCurrentHandlerFor(ctx, initHandler);
+		ctx.setCurrentHandler(initHandler, null, null);
 		
 		return ctx;
 	}
-	
-	private final FlowContextImpl.Dispatcher _dispatcher = new FlowContextImpl.Dispatcher() {
+
+	private final FlowStateChangeListener _flowStateChangeListener = new FlowStateChangeListener() {
 
         @Override
-        public void dispatchEvent(
-                final FlowContextImpl ctx, 
-                final String event,
-                final Object[] args) {
-            dispatchEventForCtx(ctx, event, args);
+        public void beforeFlowChangeTo(
+                final FlowContext ctx,
+                final EventHandler nextHandler, 
+                final String causeEvent, 
+                final Object[] causeArgs)
+                throws Exception {
+            //  if causeEvent is null, means it's initHandler
+            if ( null != causeEvent ) {
+                _flowStateChangeListenerSupport.foreachComponent(
+                        new Visitor<FlowStateChangeListener>() {
+                    @Override
+                    public void visit(final FlowStateChangeListener listener)
+                            throws Exception {
+                        listener.beforeFlowChangeTo(ctx, nextHandler, causeEvent, causeArgs);
+                    }});
+            }
+        }
+
+        @Override
+        public void afterFlowDestroy(final FlowContext ctx) throws Exception {
+            onFlowCtxDestroyed((FlowContextImpl)ctx);
         }};
-        
+	
 	private	final Set<FlowContextImpl> _flowContexts = 
 			new ConcurrentSkipListSet<FlowContextImpl>();
 	
