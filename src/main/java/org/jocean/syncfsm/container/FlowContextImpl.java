@@ -112,10 +112,10 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
             //  clear pending event and args
             while (!this._pendingEvents.isEmpty()) {
                 final Iterator<Pair<String,Object[]>> iter = this._pendingEvents.iterator();
-                afterDispatchArgs(iter.next().getSecond());
+                final Pair<String, Object[]> eventAndArgs = iter.next();
+                afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
                 iter.remove();
             }
-            
         }
     }
 
@@ -130,7 +130,7 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
         return this._pendingEvents.poll();
     }
 
-    private boolean pushPendingEvent(final String event, final Object[] args) {
+    private boolean pushPendingEvent(final String event, final Object[] args) throws Exception {
         if (!isDestroyed()) {
             this._pendingEvents.add(Pair.of(event, beforeAcceptArgs(args)));
             return true;
@@ -162,14 +162,14 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
                         ExceptionUtils.exception2detail(e));
             }
             finally {
-                afterDispatchArgs(eventAndArgs.getSecond());
+                afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
             }
         } else {
             setUnactive();
         }
     }
 
-    private Object[] beforeAcceptArgs(final Object[] args) {
+    private Object[] beforeAcceptArgs(final Object[] args) throws Exception {
         if ( null != this._argsHandler ) {
             return this._argsHandler.beforeAcceptEvent(args);
         }
@@ -178,9 +178,14 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
         }
     }
 
-    private void afterDispatchArgs(final Object[] args) {
+    private void afterDispatchArgs(final String event, final Object[] args) {
         if ( null != this._argsHandler ) {
-            this._argsHandler.afterAcceptEvent(args);
+            try {
+                this._argsHandler.afterAcceptEvent(args);
+            } catch (Exception e) {
+                LOG.warn("exception when afterAcceptEvent for event:{}, detail:{},", 
+                        event, ExceptionUtils.exception2detail(e));
+            }
         }
     }
 

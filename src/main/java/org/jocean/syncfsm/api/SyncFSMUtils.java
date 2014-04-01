@@ -60,7 +60,12 @@ public class SyncFSMUtils {
 							e.printStackTrace();
 						}
 						finally {
-							argsHandler.afterAcceptEvent(safeArgs);
+							try {
+                                argsHandler.afterAcceptEvent(safeArgs);
+                            } catch (Exception e) {
+                                LOG.warn("exception when afterAcceptEvent for event:{}, detail:{},", 
+                                        event, ExceptionUtils.exception2detail(e));
+                            }
 						}
 					}});
 				return true;

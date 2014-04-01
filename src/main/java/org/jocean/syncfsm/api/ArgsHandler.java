@@ -9,7 +9,7 @@ package org.jocean.syncfsm.api;
  */
 public interface ArgsHandler {
 	
-	public Object[] beforeAcceptEvent(final Object[] args);
+	public Object[] beforeAcceptEvent(final Object[] args) throws Exception;
 	
-	public void afterAcceptEvent(final Object[] args);
+	public void afterAcceptEvent(final Object[] args) throws Exception;
 }
