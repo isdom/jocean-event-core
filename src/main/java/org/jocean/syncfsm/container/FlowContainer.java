@@ -19,6 +19,7 @@ import org.jocean.syncfsm.api.EventNameAware;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
 import org.jocean.syncfsm.api.ExectionLoop;
+import org.jocean.syncfsm.api.ExectionLoopAware;
 import org.jocean.syncfsm.api.FlowLifecycleAware;
 import org.jocean.syncfsm.api.FlowSource;
 import org.jocean.syncfsm.common.FlowStateChangeListener;
@@ -100,8 +101,19 @@ public class FlowContainer {
 	        ) {
 		//	create new receiver
 		final FlowContextImpl ctx = initFlowCtx(flow, initHandler, exectionLoop);
-		final EventReceiver	newReceiver = genEventReceiverWithCtx(ctx);
 		
+        if ( flow instanceof ExectionLoopAware ) {
+            try {
+                ((ExectionLoopAware)flow).setExectionLoop(exectionLoop);
+            }
+            catch (Exception e) {
+                LOG.error("exception when invoke flow {}'s setExectionLoop, detail: {}",
+                        flow, ExceptionUtils.exception2detail(e));
+            }
+        }
+        
+        final EventReceiver newReceiver = genEventReceiverWithCtx(ctx);
+        
 		if ( flow instanceof FlowLifecycleAware ) {
 			try {
 				((FlowLifecycleAware)flow).afterEventReceiverCreated(newReceiver);

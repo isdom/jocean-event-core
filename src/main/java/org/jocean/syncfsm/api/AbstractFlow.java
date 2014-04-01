@@ -17,7 +17,9 @@ public abstract class AbstractFlow<FLOW>
 	implements EventNameAware, 
 		EventHandlerAware, 
 		FlowLifecycleAware, 
-		EndReasonSource {
+		EndReasonSource,
+		ExectionLoopAware
+		{
 
 	public <INTF> INTF getInterfaceAdapter(final Class<INTF> intfCls) {
 		@SuppressWarnings("unchecked")
@@ -88,6 +90,11 @@ public abstract class AbstractFlow<FLOW>
 			}});
 	}
 	
+    @Override
+    public void setExectionLoop(final ExectionLoop exectionLoop) {
+        this._exectionLoop = exectionLoop;
+    }
+    
 	@Override
 	public Object getEndReason() throws Exception {
 		return _endreason;
@@ -109,10 +116,15 @@ public abstract class AbstractFlow<FLOW>
 		this._endreason = endreason;
 	}
 	
+	protected ExectionLoop selfExectionLoop() {
+	    return this._exectionLoop;
+	}
+	
 	private String			_event;
 	private EventHandler 	_handler;
 	private Object 			_endreason;
 	private EventReceiver	_receiver;
+	private ExectionLoop   _exectionLoop;
 	
 	private final COWCompositeSupport<FlowLifecycleListener<FLOW>> _lifecycleSupport
 		= new COWCompositeSupport<FlowLifecycleListener<FLOW>>();

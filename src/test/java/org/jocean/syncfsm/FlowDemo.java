@@ -8,6 +8,7 @@ import java.util.Random;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.jocean.idiom.Detachable;
 import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
@@ -84,13 +85,21 @@ public class FlowDemo {
                         }
 
                         @Override
-                        public void submit(Runnable runnable) {
+                        public Detachable submit(Runnable runnable) {
                             runnable.run();
+                            return new Detachable() {
+                                @Override
+                                public void detach() {
+                                }};
                         }
 
                         @Override
-                        public void schedule(Runnable runnable, long delayMillis) {
+                        public Detachable schedule(Runnable runnable, long delayMillis) {
                             runnable.run();
+                            return new Detachable() {
+                                @Override
+                                public void detach() {
+                                }};
                         }};
                 }});
     		
