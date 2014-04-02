@@ -150,6 +150,12 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
      */
     public void destroy() {
         if (this._isAlive.compareAndSet(true, false)) {
+            
+            if ( LOG.isDebugEnabled() ) {
+                LOG.debug("flow({}) destroy with currentHandler({})", this._flow, 
+                        ( null == this._currentHandler ? "null" : this._currentHandler.getName()));
+            }
+            
             this._lastModify = System.currentTimeMillis();
             
             //  clear pending event and args
@@ -234,6 +240,11 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
                 this.dispatchEvent(
                         eventAndArgs.getFirst(),
                         eventAndArgs.getSecond());
+                if ( LOG.isDebugEnabled() ) {
+                    LOG.debug("flow({}) with currentHandler({}) end of dispatch event:({}) and _isActive({})", 
+                            this._flow, this._currentHandler.getName(), 
+                            eventAndArgs.getFirst(), this._isActive.get());
+                }
             } catch (Exception e) {
                 LOG.warn("exception when flow({}) process event:({}), detail:{}",
                         this._flow,
@@ -298,6 +309,9 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
 
     private boolean setActived() throws Exception {
         if (isDestroyed()) {
+            if ( LOG.isDebugEnabled() ) {
+                LOG.debug("try setActived for destroyed flow({}), return false", this._flow);
+            }
             return false;
         }
         final boolean ret = this._isActive.compareAndSet(false, true);
@@ -394,6 +408,10 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         
         try {
             this.endOfDispatchEvent();
+            if ( LOG.isDebugEnabled() ) {
+                LOG.debug("after endOfDispatchEvent for flow({}) cause by event:({}) and _isActived({})",
+                        this._flow, event, this._isActive.get());
+            }
         }
         catch (Exception e) {
             LOG.error("exception when flow ({}).endOfDispatchEvent, detail: {}, try end flow", 
