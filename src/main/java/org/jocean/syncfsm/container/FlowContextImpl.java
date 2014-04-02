@@ -227,11 +227,16 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
 
         if (null != eventAndArgs) {
             try {
+                if ( LOG.isDebugEnabled() ) {
+                    LOG.debug("flow({}) with currentHandler({}) dispatch event:({})", 
+                            this._flow, this._currentHandler.getName(), eventAndArgs.getFirst());
+                }
                 this.dispatchEvent(
                         eventAndArgs.getFirst(),
                         eventAndArgs.getSecond());
             } catch (Exception e) {
-                LOG.warn("exception when process event {}, detail:{}",
+                LOG.warn("exception when flow({}) process event {}, detail:{}",
+                        this._flow,
                         eventAndArgs.getFirst(),
                         ExceptionUtils.exception2detail(e));
             }
@@ -263,16 +268,16 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         }
     }
 
-    private void schedulePendingEvent() {
+    private void schedulePendingEvent(final String causeEvent) {
         if (this._exectionLoop.inExectionLoop()) {
             if ( LOG.isDebugEnabled()) {
-                LOG.debug("flow {}'s currentHandler({}): schedulePendingEvent in exectionLoop, just invoke direct.", 
-                        this._flow, this._currentHandler.getName());
+                LOG.debug("flow {}'s currentHandler({}): schedulePendingEvent cause by event:({}) in exectionLoop, just invoke direct.", 
+                        this._flow, this._currentHandler.getName(), causeEvent);
             }
             dispatchPendingEvent();
         } else {
-            LOG.debug("flow {}'s currentHandler({}): schedulePendingEvent NOT in exectionLoop, just invoke as submit.", 
-                    this._flow, this._currentHandler.getName());
+            LOG.debug("flow {}'s currentHandler({}): schedulePendingEvent cause by event:({}) NOT in exectionLoop, just invoke as submit.", 
+                    this._flow, this._currentHandler.getName(), causeEvent);
             this._exectionLoop.submit( this._dispatchPendingRunnable );
         }
     }
@@ -280,11 +285,11 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
     private void checkIfSchedulePendingEvent(final String causeEvent) throws Exception {
         if (hasPendingEvent()) {
             if (setActived()) {
-                schedulePendingEvent();
+                schedulePendingEvent(causeEvent);
             }
             else {
                 if ( LOG.isDebugEnabled() ) {
-                    LOG.debug("flow {}'s currentHandler({}): already actived, can't schedulePendingEvent cause by event:{}", 
+                    LOG.debug("flow {}'s currentHandler({}): already actived, can't schedulePendingEvent cause by event:({})", 
                             this._flow, this._currentHandler.getName(), causeEvent);
                 }
             }
