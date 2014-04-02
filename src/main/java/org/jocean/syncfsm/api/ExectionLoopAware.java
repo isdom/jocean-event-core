@@ -3,6 +3,8 @@
  */
 package org.jocean.syncfsm.api;
 
+import org.jocean.idiom.ExectionLoop;
+
 /**
  * @author isdom
  *

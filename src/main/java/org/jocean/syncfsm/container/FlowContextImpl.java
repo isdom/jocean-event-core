@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.jocean.idiom.ExceptionUtils;
+import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.Pair;
 import org.jocean.syncfsm.api.ArgsHandler;
 import org.jocean.syncfsm.api.ArgsHandlerSource;
@@ -18,7 +19,6 @@ import org.jocean.syncfsm.api.EndReasonSource;
 import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.EventHandlerAware;
 import org.jocean.syncfsm.api.EventNameAware;
-import org.jocean.syncfsm.api.ExectionLoop;
 import org.jocean.syncfsm.api.ExectionLoopAware;
 import org.jocean.syncfsm.api.FlowLifecycleAware;
 import org.jocean.syncfsm.common.FlowContext;
@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * @author isdom
  * 
  */
-class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
+final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
 
     private static final Logger LOG = LoggerFactory
             .getLogger(FlowContextImpl.class);
@@ -425,15 +425,15 @@ class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> {
 
     private final Queue<Pair<String, Object[]>> _pendingEvents = new ConcurrentLinkedQueue<Pair<String, Object[]>>();
     private final ExectionLoop _exectionLoop;
-    protected final long _createTime = System.currentTimeMillis();
-    protected long _lastModify = System.currentTimeMillis();
+    private final long _createTime = System.currentTimeMillis();
+    private volatile long _lastModify = System.currentTimeMillis();
     private final AtomicLong _activeTime = new AtomicLong(0);
     private volatile long _lastActiveTime;
 
     private final AtomicBoolean _isAlive = new AtomicBoolean(true);
 
     private volatile EventHandler _currentHandler = null;
-    private Object _reason = null;
+    private volatile Object _reason = null;
     private final Object _flow;
     private final ArgsHandler _argsHandler;
     
