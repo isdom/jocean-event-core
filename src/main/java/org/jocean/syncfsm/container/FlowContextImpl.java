@@ -104,7 +104,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
     // return true means event has been push to event-queue
     public boolean processEvent(final String event, final Object[] args) throws Exception {
         if (pushPendingEvent(event, args)) {
-            checkIfSchedulePendingEvent();
+            checkIfSchedulePendingEvent(event);
             return true;
         } else {
             return false;
@@ -277,15 +277,15 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         }
     }
 
-    private void checkIfSchedulePendingEvent() throws Exception {
+    private void checkIfSchedulePendingEvent(final String causeEvent) throws Exception {
         if (hasPendingEvent()) {
             if (setActived()) {
                 schedulePendingEvent();
             }
             else {
                 if ( LOG.isDebugEnabled() ) {
-                    LOG.debug("flow {}'s currentHandler({}): already actived, can't schedulePendingEvent", 
-                            this._flow, this._currentHandler.getName());
+                    LOG.debug("flow {}'s currentHandler({}): already actived, can't schedulePendingEvent cause by event:{}", 
+                            this._flow, this._currentHandler.getName(), causeEvent);
                 }
             }
         }
@@ -339,7 +339,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
 
     private void endOfDispatchEvent() throws Exception {
         setUnactive();
-        checkIfSchedulePendingEvent();
+        checkIfSchedulePendingEvent("Internal Action: endOfDispatchEvent");
     }
 
     private boolean dispatchEvent(final String event, final Object[] args) {
@@ -361,8 +361,9 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             eventHandled = result.getSecond();
         }
         catch (Exception e) {
-            LOG.error("exception when {}.acceptEvent, detail:{}", 
+            LOG.error("exception when ({}).acceptEvent({} ... ), detail:{}", 
                 currentHandler.getName(), 
+                event,
                 ExceptionUtils.exception2detail(e));
         }
         finally {
@@ -371,11 +372,11 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         
         if ( null == nextHandler ) {
             // handled and next handler is null
-            if ( LOG.isDebugEnabled() ) {
-                LOG.debug("flow ({}) will end normally.", this._flow);
-            }
-            
             this.destroy();
+            
+            if ( LOG.isDebugEnabled() ) {
+                LOG.debug("flow ({}) end normally for event({}).", this._flow, event);
+            }
             return  eventHandled;
         }
         else if ( currentHandler.equals( nextHandler ) ) {
