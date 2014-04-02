@@ -123,7 +123,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
                     this._stateChangeListener.beforeFlowChangeTo(this, handler, causeEvent, causeArgs);
                 }
                 catch (Exception e) {
-                    LOG.warn("exception when _stateChangeListener.beforeFlowChangeTo for flow({}) with next handler({}), event({}), detail:{}",
+                    LOG.warn("exception when _stateChangeListener.beforeFlowChangeTo for flow({}) with next handler({}), event:({}), detail:{}",
                             this._flow, handler.getName(), causeEvent, ExceptionUtils.exception2detail(e));
                 }
             }
@@ -209,7 +209,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             this._pendingEvents.add(Pair.of(event, beforeAcceptArgs(args)));
             return true;
         } else {
-            LOG.warn("flow {} already destroy, ignore pending event {} ", this._flow,
+            LOG.warn("flow {} already destroy, ignore pending event:({})", this._flow,
                     event);
             return false;
         }
@@ -235,7 +235,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
                         eventAndArgs.getFirst(),
                         eventAndArgs.getSecond());
             } catch (Exception e) {
-                LOG.warn("exception when flow({}) process event {}, detail:{}",
+                LOG.warn("exception when flow({}) process event:({}), detail:{}",
                         this._flow,
                         eventAndArgs.getFirst(),
                         ExceptionUtils.exception2detail(e));
@@ -262,8 +262,8 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             try {
                 this._argsHandler.afterAcceptEvent(args);
             } catch (Exception e) {
-                LOG.warn("exception when afterAcceptEvent for event:{}, detail:{},", 
-                        event, ExceptionUtils.exception2detail(e));
+                LOG.warn("exception when flow({})'s afterAcceptEvent for event:({}), detail:{},", 
+                        this._flow, event, ExceptionUtils.exception2detail(e));
             }
         }
     }
@@ -350,7 +350,8 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
     private boolean dispatchEvent(final String event, final Object[] args) {
         final EventHandler currentHandler = this.getCurrentHandler();
         if ( null == currentHandler ) {
-            LOG.error("Internal Error: current handler is null, remove flow {}", this._flow);
+            LOG.error("Internal Error: current handler is null when accept event:({}), destroy flow({})", 
+                    event, this._flow);
             this.destroy();
             return  false;
         }
@@ -366,7 +367,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             eventHandled = result.getSecond();
         }
         catch (Exception e) {
-            LOG.error("exception when ({}).acceptEvent({} ... ), detail:{}", 
+            LOG.error("exception when ({}).acceptEvent(event:({}) ... ), detail:{}", 
                 currentHandler.getName(), 
                 event,
                 ExceptionUtils.exception2detail(e));
@@ -380,7 +381,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             this.destroy();
             
             if ( LOG.isDebugEnabled() ) {
-                LOG.debug("flow ({}) end normally for event({}).", this._flow, event);
+                LOG.debug("flow ({}) end normally for event:({}).", this._flow, event);
             }
             return  eventHandled;
         }
@@ -409,7 +410,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
                 ((EventNameAware)this._flow).setEventName(event);
             }
             catch (Exception e) {
-                LOG.error("exception when setEventName: event {} to flow {}, detail: {}",
+                LOG.error("exception when setEventName: event:({}) to flow {}, detail: {}",
                     event, this._flow, ExceptionUtils.exception2detail(e));
             }
         }
