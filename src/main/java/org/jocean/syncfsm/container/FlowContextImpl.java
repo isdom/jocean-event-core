@@ -241,9 +241,9 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
                         eventAndArgs.getFirst(),
                         eventAndArgs.getSecond());
                 if ( LOG.isDebugEnabled() ) {
-                    LOG.debug("flow({}) with currentHandler({}) end of dispatch event:({}) and _isActive({})", 
+                    LOG.debug("flow({}) with currentHandler({}) end of dispatch event:({}) and _isActived({})", 
                             this._flow, this._currentHandler.getName(), 
-                            eventAndArgs.getFirst(), this._isActive.get());
+                            eventAndArgs.getFirst(), this._isActived.get());
                 }
             } catch (Exception e) {
                 LOG.warn("exception when flow({}) process event:({}), detail:{}",
@@ -314,7 +314,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             }
             return false;
         }
-        final boolean ret = this._isActive.compareAndSet(false, true);
+        final boolean ret = this._isActived.compareAndSet(false, true);
         if (ret) {
             // if ( null != this._statusListener ) {
             // try {
@@ -322,7 +322,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             // }
             // catch (Exception e) {
             // // 重置 激活标记为 false
-            // _isActive.set(false);
+            // _isActived.set(false);
             // LOG.warn("exception when invoke this.statusListener.onActive, detail: {}",
             // ExceptionUtils.exception2detail(e));
             // throw e;
@@ -341,7 +341,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
     // }
 
     private void setUnactive() {
-        if (this._isActive.compareAndSet(true, false)) {
+        if (this._isActived.compareAndSet(true, false)) {
             this._activeTime.addAndGet(System.currentTimeMillis()
                     - this._lastActiveTime);
             // if ( null != this._statusListener ) {
@@ -410,7 +410,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             this.endOfDispatchEvent();
             if ( LOG.isDebugEnabled() ) {
                 LOG.debug("after endOfDispatchEvent for flow({}) cause by event:({}) and _isActived({})",
-                        this._flow, event, this._isActive.get());
+                        this._flow, event, this._isActived.get());
             }
         }
         catch (Exception e) {
@@ -446,7 +446,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
 
     private final FlowStateChangeListener _stateChangeListener;
     
-    private final AtomicBoolean _isActive = new AtomicBoolean(false);
+    private final AtomicBoolean _isActived = new AtomicBoolean(false);
 
     private final Queue<Pair<String, Object[]>> _pendingEvents = new ConcurrentLinkedQueue<Pair<String, Object[]>>();
     private final ExectionLoop _exectionLoop;
