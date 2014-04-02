@@ -209,7 +209,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             this._pendingEvents.add(Pair.of(event, beforeAcceptArgs(args)));
             return true;
         } else {
-            LOG.warn("ctx {} already destroy, ignore pending event {} ", this,
+            LOG.warn("flow {} already destroy, ignore pending event {} ", this._flow,
                     event);
             return false;
         }
