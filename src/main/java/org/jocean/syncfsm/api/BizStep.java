@@ -108,8 +108,10 @@ public class BizStep implements Cloneable, EventHandler {
 				return Pair.of((EventHandler)eventInvoker.invoke(args), true);
 			}
 			else {
-				LOG.warn("BizStep [{}] don't except event {} , just ignore", 
-						this._name, event);
+			    if ( LOG.isDebugEnabled() ) {
+    				LOG.debug("BizStep [{}] don't except event {} , just ignore", 
+    						this._name, event);
+			    }
 				//	do not change state
 				return Pair.of((EventHandler)this, false);
 			}

@@ -15,6 +15,7 @@ import org.jocean.idiom.Visitor;
 import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
+import org.jocean.syncfsm.api.Eventable;
 import org.jocean.syncfsm.api.FlowLifecycleAware;
 import org.jocean.syncfsm.api.FlowSource;
 import org.jocean.syncfsm.common.FlowContext;
@@ -126,12 +127,26 @@ public class FlowContainer {
 		            return ctx.processEvent(event, args);
 		        }
 		        catch (final Exception e) {
-		            LOG.error("exception when flow {}.processEvent, detail:{}, try end flow", 
+		            LOG.error("exception when flow({})'s processEvent, detail:{}, try end flow", 
 		                    ctx.getFlow(), ExceptionUtils.exception2detail(e));
 		            ctx.destroy();
 		            throw e;
 		        }
-			}};
+			}
+
+            @Override
+            public boolean acceptEvent(final Eventable eventable, final Object... args)
+                    throws Exception {
+                try {
+                    return ctx.processEvent(eventable, args);
+                }
+                catch (final Exception e) {
+                    LOG.error("exception when flow({})'s processEvent, detail:{}, try end flow", 
+                            ctx.getFlow(), ExceptionUtils.exception2detail(e));
+                    ctx.destroy();
+                    throw e;
+                }
+            }};
 	}
 	
 	public String getName() {

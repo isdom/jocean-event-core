@@ -19,6 +19,8 @@ import org.jocean.syncfsm.api.EndReasonSource;
 import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.EventHandlerAware;
 import org.jocean.syncfsm.api.EventNameAware;
+import org.jocean.syncfsm.api.EventUnhandleAware;
+import org.jocean.syncfsm.api.Eventable;
 import org.jocean.syncfsm.api.ExectionLoopAware;
 import org.jocean.syncfsm.api.FlowLifecycleAware;
 import org.jocean.syncfsm.common.FlowContext;
@@ -102,9 +104,9 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
     }
 
     // return true means event has been push to event-queue
-    public boolean processEvent(final String event, final Object[] args) throws Exception {
-        if (pushPendingEvent(event, args)) {
-            checkIfSchedulePendingEvent(event);
+    public boolean processEvent(final Object eventable, final Object[] args) throws Exception {
+        if (pushPendingEvent(eventable, args)) {
+            checkIfSchedulePendingEvent( obj2event(eventable));
             return true;
         } else {
             return false;
@@ -143,26 +145,24 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         return this;
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see com.skymobi.fsm.FSMContext#destroy()
-     */
     public void destroy() {
         if (this._isAlive.compareAndSet(true, false)) {
             
-            if ( LOG.isDebugEnabled() ) {
-                LOG.debug("flow({}) destroy with currentHandler({})", this._flow, 
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace("flow({}) destroy with currentHandler({})", this._flow, 
                         ( null == this._currentHandler ? "null" : this._currentHandler.getName()));
             }
             
             this._lastModify = System.currentTimeMillis();
             
+            setUnactive();
+            
             //  clear pending event and args
             while (!this._pendingEvents.isEmpty()) {
-                final Iterator<Pair<String,Object[]>> iter = this._pendingEvents.iterator();
-                final Pair<String, Object[]> eventAndArgs = iter.next();
-                afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+                final Iterator<Pair<Object,Object[]>> iter = this._pendingEvents.iterator();
+                final Pair<Object, Object[]> eventAndArgs = iter.next();
+                notifyUnhandleEvent(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+                afterDispatchArgs( obj2event(eventAndArgs.getFirst()), eventAndArgs.getSecond());
                 iter.remove();
             }
             
@@ -203,21 +203,38 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         return !_isAlive.get();
     }
 
-    private Pair<String, Object[]> popPendingEvent() {
+    private Pair<Object, Object[]> popPendingEvent() {
         if (isDestroyed()) {
             return null;
         }
         return this._pendingEvents.poll();
     }
 
-    private boolean pushPendingEvent(final String event, final Object[] args) throws Exception {
+    private boolean pushPendingEvent(final Object eventable, final Object[] args) throws Exception {
         if (!isDestroyed()) {
-            this._pendingEvents.add(Pair.of(event, beforeAcceptArgs(args)));
+            this._pendingEvents.add(Pair.of(eventable, beforeAcceptArgs(args)));
             return true;
         } else {
-            LOG.warn("flow {} already destroy, ignore pending event:({})", this._flow,
-                    event);
+            LOG.warn("flow {} already destroy, bypass pending event:({})", this._flow,
+                    obj2event(eventable));
+            notifyUnhandleEvent(eventable, args);
             return false;
+        }
+    }
+
+    private void notifyUnhandleEvent(final Object eventable, final Object[] args) {
+        if ( eventable instanceof EventUnhandleAware ) {
+            try {
+                if ( LOG.isTraceEnabled() ) {
+                    LOG.trace("flow({}) invoke EventUnhandleAware({})'s onEventUnhandle with event:({})",
+                            this._flow, eventable, obj2event(eventable));
+                }
+                ((EventUnhandleAware)eventable).onEventUnhandle(obj2event(eventable), args);
+            }
+            catch (Exception e) {
+                LOG.warn("exception when flow({}) notify EventUnhandleAware({})'s onEventUnhandle with event({}), detail: {}",
+                        this._flow, eventable, obj2event(eventable), ExceptionUtils.exception2detail(e));
+            }
         }
     }
 
@@ -229,36 +246,57 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
     }
 
     private void dispatchPendingEvent() {
-        final Pair<String, Object[]> eventAndArgs = popPendingEvent();
-
+        final Pair<Object, Object[]> eventAndArgs = popPendingEvent();
+        
         if (null != eventAndArgs) {
+            final String event = obj2event(eventAndArgs.getFirst());
             try {
-                if ( LOG.isDebugEnabled() ) {
-                    LOG.debug("flow({}) with currentHandler({}) dispatch event:({})", 
-                            this._flow, this._currentHandler.getName(), eventAndArgs.getFirst());
+                if ( LOG.isTraceEnabled() ) {
+                    LOG.trace("flow({}) with currentHandler({}) before dispatch event:({})", 
+                            this._flow, this._currentHandler.getName(), event);
                 }
-                this.dispatchEvent(
-                        eventAndArgs.getFirst(),
-                        eventAndArgs.getSecond());
-                if ( LOG.isDebugEnabled() ) {
-                    LOG.debug("flow({}) with currentHandler({}) end of dispatch event:({}) and _isActived({})", 
+                
+                if ( !this.dispatchEvent(
+                        event,
+                        eventAndArgs.getSecond()) ) {
+                    // event !NOT! handle by current EventHandler
+                    if ( LOG.isTraceEnabled() ) {
+                        LOG.trace("flow({}) with currentHandler({}) !NOT! handle event:({})", 
+                                this._flow, this._currentHandler.getName(), event);
+                    }
+                    notifyUnhandleEvent(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+                }
+                
+                if ( LOG.isTraceEnabled() ) {
+                    LOG.trace("flow({}) with currentHandler({}) after dispatch event:({}) and _isActived({})", 
                             this._flow, this._currentHandler.getName(), 
-                            eventAndArgs.getFirst(), this._isActived.get());
+                            event, this._isActived.get());
                 }
             } catch (Exception e) {
                 LOG.warn("exception when flow({}) process event:({}), detail:{}",
-                        this._flow,
-                        eventAndArgs.getFirst(),
+                        this._flow, event,
                         ExceptionUtils.exception2detail(e));
             }
             finally {
-                afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+                afterDispatchArgs( event, eventAndArgs.getSecond());
             }
         } else {
             setUnactive();
         }
     }
 
+    private static String obj2event(final Object obj) {
+        if ( obj instanceof String) {
+            return (String)obj;
+        }
+        else if ( obj instanceof Eventable ) {
+            return ((Eventable)obj).event();
+        }
+        else {
+            throw new RuntimeException("Internal Error:obj must be String or Eventable.");
+        }
+    }
+    
     private Object[] beforeAcceptArgs(final Object[] args) throws Exception {
         if ( null != this._argsHandler ) {
             return this._argsHandler.beforeAcceptEvent(args);
@@ -281,14 +319,16 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
 
     private void schedulePendingEvent(final String causeEvent) {
         if (this._exectionLoop.inExectionLoop()) {
-            if ( LOG.isDebugEnabled()) {
-                LOG.debug("flow {}'s currentHandler({}): schedulePendingEvent cause by event:({}) in exectionLoop, just invoke direct.", 
+            if ( LOG.isTraceEnabled()) {
+                LOG.trace("flow {}'s currentHandler({}): schedulePendingEvent cause by event:({}) in exectionLoop, just invoke direct.", 
                         this._flow, this._currentHandler.getName(), causeEvent);
             }
             dispatchPendingEvent();
         } else {
-            LOG.debug("flow {}'s currentHandler({}): schedulePendingEvent cause by event:({}) NOT in exectionLoop, just invoke as submit.", 
-                    this._flow, this._currentHandler.getName(), causeEvent);
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace("flow {}'s currentHandler({}): schedulePendingEvent cause by event:({}) NOT in exectionLoop, just invoke as submit.", 
+                        this._flow, this._currentHandler.getName(), causeEvent);
+            }
             this._exectionLoop.submit( this._dispatchPendingRunnable );
         }
     }
@@ -299,8 +339,8 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
                 schedulePendingEvent(causeEvent);
             }
             else {
-                if ( LOG.isDebugEnabled() ) {
-                    LOG.debug("flow {}'s currentHandler({}): already actived, can't schedulePendingEvent cause by event:({})", 
+                if ( LOG.isTraceEnabled() ) {
+                    LOG.trace("flow {}'s currentHandler({}): already actived, can't schedulePendingEvent cause by event:({})", 
                             this._flow, this._currentHandler.getName(), causeEvent);
                 }
             }
@@ -309,8 +349,8 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
 
     private boolean setActived() throws Exception {
         if (isDestroyed()) {
-            if ( LOG.isDebugEnabled() ) {
-                LOG.debug("try setActived for destroyed flow({}), return false", this._flow);
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace("try setActived for destroyed flow({}), return false", this._flow);
             }
             return false;
         }
@@ -408,8 +448,8 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         
         try {
             this.endOfDispatchEvent();
-            if ( LOG.isDebugEnabled() ) {
-                LOG.debug("after endOfDispatchEvent for flow({}) cause by event:({}) and _isActived({})",
+            if ( LOG.isTraceEnabled() ) {
+                LOG.trace("after endOfDispatchEvent for flow({}) cause by event:({}) and _isActived({})",
                         this._flow, event, this._isActived.get());
             }
         }
@@ -448,7 +488,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
     
     private final AtomicBoolean _isActived = new AtomicBoolean(false);
 
-    private final Queue<Pair<String, Object[]>> _pendingEvents = new ConcurrentLinkedQueue<Pair<String, Object[]>>();
+    private final Queue<Pair<Object, Object[]>> _pendingEvents = new ConcurrentLinkedQueue<Pair<Object, Object[]>>();
     private final ExectionLoop _exectionLoop;
     private final long _createTime = System.currentTimeMillis();
     private volatile long _lastModify = System.currentTimeMillis();

@@ -36,8 +36,25 @@ public class SyncFSMUtils {
                             handled = true;
                         }
                     } catch (final Exception e) {
-                        LOG.error("failed to acceptEvent: {}",
-                                ExceptionUtils.exception2detail(e));
+                        LOG.error("failed to acceptEvent event:({}), detail: {}",
+                                event, ExceptionUtils.exception2detail(e));
+                    }
+                }
+                return handled;
+            }
+
+            @Override
+            public boolean acceptEvent(final Eventable eventable, final Object... args)
+                    throws Exception {
+                boolean handled = false;
+                for (EventReceiver receiver : receivers) {
+                    try {
+                        if (receiver.acceptEvent(eventable, args)) {
+                            handled = true;
+                        }
+                    } catch (final Exception e) {
+                        LOG.error("failed to acceptEvent event:({}), detail: {}",
+                                eventable.event(), ExceptionUtils.exception2detail(e));
                     }
                 }
                 return handled;
@@ -64,7 +81,7 @@ public class SyncFSMUtils {
                                 argsHandler.afterAcceptEvent(safeArgs);
                             } catch (Exception e) {
                                 LOG.warn(
-                                        "exception when afterAcceptEvent for event:{}, detail:{},",
+                                        "exception when argsHandler.afterAcceptEvent for event:{}, detail:{},",
                                         event,
                                         ExceptionUtils.exception2detail(e));
                             }
@@ -88,8 +105,57 @@ public class SyncFSMUtils {
                                         argsHandler.afterAcceptEvent(safeArgs);
                                     } catch (Exception e) {
                                         LOG.warn(
-                                                "exception when afterAcceptEvent for event:{}, detail:{},",
+                                                "exception when argsHandler.afterAcceptEvent for event:{}, detail:{},",
                                                 event, ExceptionUtils.exception2detail(e));
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                return true;
+            }
+
+            @Override
+            public boolean acceptEvent(final Eventable eventable, final Object... args)
+                    throws Exception {
+                final Object[] safeArgs = (null != argsHandler) ? argsHandler
+                        .beforeAcceptEvent(args) : args;
+                if (exectionLoop.inExectionLoop()) {
+                    try {
+                        return receiver.acceptEvent(eventable, safeArgs);
+                    } finally {
+                        if (null != argsHandler) {
+                            try {
+                                argsHandler.afterAcceptEvent(safeArgs);
+                            } catch (Exception e) {
+                                LOG.warn(
+                                        "exception when argsHandler.afterAcceptEvent for event:{}, detail:{},",
+                                        eventable.event(),
+                                        ExceptionUtils.exception2detail(e));
+                            }
+                        }
+                    }
+                } else {
+                    exectionLoop.submit(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            try {
+                                receiver.acceptEvent(eventable, safeArgs);
+                            } catch (Exception e) {
+                                LOG.warn(
+                                        "exception when acceptEvent for event:{}, detail:{},",
+                                        eventable.event(),
+                                        ExceptionUtils.exception2detail(e));
+                            } finally {
+                                if (null != argsHandler) {
+                                    try {
+                                        argsHandler.afterAcceptEvent(safeArgs);
+                                    } catch (Exception e) {
+                                        LOG.warn(
+                                                "exception when argsHandler.afterAcceptEvent for event:{}, detail:{},",
+                                                eventable.event(), ExceptionUtils.exception2detail(e));
                                     }
                                 }
                             }
