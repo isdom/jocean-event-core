@@ -10,8 +10,6 @@
     <property name="module.version" value="0.0.8" />
 
     <property file="${user.home}/buildsettings.properties" />
-    <!-- property name="devconf.url" value="https://raw.github.com/isdom/devsetup/master/devconf/" /-->
-    <!-- property name="lib.buildfile" value="build-lib.xml" /-->
 
     <import  as="impl">
         <url url="${lib.buildfile}"/>
