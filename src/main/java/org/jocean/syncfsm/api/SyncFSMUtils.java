@@ -9,7 +9,7 @@ import java.lang.reflect.Proxy;
 
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
-import org.jocean.syncfsm.api.annotion.OnEvent;
+import org.jocean.syncfsm.api.annotation.OnEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

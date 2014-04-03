@@ -5,7 +5,7 @@ package org.jocean.syncfsm.api;
 
 import java.lang.reflect.Method;
 
-import org.jocean.syncfsm.api.annotion.OnEvent;
+import org.jocean.syncfsm.api.annotation.OnEvent;
 
 
 /**

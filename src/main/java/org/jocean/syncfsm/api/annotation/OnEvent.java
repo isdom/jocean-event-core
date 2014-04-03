@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.jocean.syncfsm.api.annotion;
+package org.jocean.syncfsm.api.annotation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
