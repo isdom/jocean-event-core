@@ -356,43 +356,15 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         }
         final boolean ret = this._isActived.compareAndSet(false, true);
         if (ret) {
-            // if ( null != this._statusListener ) {
-            // try {
-            // this._statusListener.onActive(this);
-            // }
-            // catch (Exception e) {
-            // // 重置 激活标记为 false
-            // _isActived.set(false);
-            // LOG.warn("exception when invoke this.statusListener.onActive, detail: {}",
-            // ExceptionUtils.exception2detail(e));
-            // throw e;
-            // }
-            // }
-            // _isActivedOnce = true;
             this._lastActiveTime = System.currentTimeMillis();
         }
         return ret;
     }
 
-    // 是否曾经激活过
-    // 也就是至少在 runner 工作线程中执行过至少一次
-    // public boolean isActivedOnce() {
-    // return this._isActivedOnce;
-    // }
-
     private void setUnactive() {
         if (this._isActived.compareAndSet(true, false)) {
             this._activeTime.addAndGet(System.currentTimeMillis()
                     - this._lastActiveTime);
-            // if ( null != this._statusListener ) {
-            // try {
-            // this._statusListener.onUnactive(this);
-            // }
-            // catch (Exception e) {
-            // LOG.warn("throw exception when invoke this.statusListener.onUnactive",
-            // e);
-            // }
-            // }
         }
     }
 

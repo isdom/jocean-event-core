@@ -227,11 +227,8 @@ public class FlowContainer {
 		final EventHandler initHandler,
         final ExectionLoop exectionLoop
 		) {
-		final FlowContextImpl ctx = new FlowContextImpl(flow, exectionLoop, this._flowStateChangeListener);
-		
-		ctx.setCurrentHandler(initHandler, null, null);
-		
-		return ctx;
+	    return new FlowContextImpl(flow, exectionLoop, this._flowStateChangeListener)
+	        .setCurrentHandler(initHandler, null, null);
 	}
 
 	private final FlowStateChangeListener _flowStateChangeListener = new FlowStateChangeListener() {
