@@ -200,7 +200,7 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
     }
 
     public boolean isDestroyed() {
-        return !_isAlive.get();
+        return !this._isAlive.get();
     }
 
     private Pair<Object, Object[]> popPendingEvent() {
@@ -368,11 +368,6 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
         }
     }
 
-    private void endOfDispatchEvent() throws Exception {
-        setUnactive();
-        checkIfSchedulePendingEvent("Internal Action: endOfDispatchEvent");
-    }
-
     private boolean dispatchEvent(final String event, final Object[] args) {
         final EventHandler currentHandler = this.getCurrentHandler();
         if ( null == currentHandler ) {
@@ -418,17 +413,10 @@ final class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl> 
             setCurrentHandler(nextHandler, event, args);
         }
         
-        try {
-            this.endOfDispatchEvent();
-            if ( LOG.isTraceEnabled() ) {
-                LOG.trace("after endOfDispatchEvent for flow({}) cause by event:({}) and _isActived({})",
-                        this._flow, event, this._isActived.get());
-            }
-        }
-        catch (Exception e) {
-            LOG.error("exception when flow ({}).endOfDispatchEvent, detail: {}, try end flow", 
-                    this._flow, ExceptionUtils.exception2detail(e));
-            this.destroy();
+        dispatchPendingEvent();
+        if ( LOG.isTraceEnabled() ) {
+            LOG.trace("after end of dispatchEvent invoke dispatchPendingEvent for flow({}) cause by event:({}) and _isActived({})",
+                    this._flow, event, this._isActived.get());
         }
         
         return  eventHandled;
