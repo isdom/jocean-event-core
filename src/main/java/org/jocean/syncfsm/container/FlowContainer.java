@@ -158,7 +158,7 @@ public class FlowContainer {
 	}
 
 	public int getFlowTotalCount() {
-		return this.totalFlowCount.get();
+		return this._totalFlowCount.get();
 	}
 
 	public long getDealHandledCount() {
@@ -178,27 +178,29 @@ public class FlowContainer {
 	        final EventHandler initHandler,
             final ExectionLoop exectionLoop 
 	        ) {
-		final FlowContextImpl newCtx = createFlowCtx(flow, initHandler, exectionLoop);
+		final FlowContextImpl newCtx = 
+	        new FlowContextImpl(flow, exectionLoop, this._flowStateChangeListener)
+                .setCurrentHandler(initHandler, null, null);
 		
-		this._flowContexts.add(newCtx);
+		if ( this._flowContexts.add(newCtx) ) {
+    		// add new context
+    		this._totalFlowCount.incrementAndGet();
+		}
 		
-		incDealHandledCount();
-		
-		// add new context
-		totalFlowCount.incrementAndGet();
-		
+        incDealHandledCount();
+        
 		return	newCtx;
 	}
 	
 	private void onFlowCtxDestroyed(final FlowContextImpl ctx) {
 		if ( this._flowContexts.remove(ctx) ) {
 			//	移除操作有效
-			this.totalFlowCount.decrementAndGet();
+			this._totalFlowCount.decrementAndGet();
 		}
 		
 		incDealCompletedCount();
 		
-		_flowStateChangeListenerSupport.foreachComponent(new Visitor<FlowStateChangeListener>() {
+		this._flowStateChangeListenerSupport.foreachComponent(new Visitor<FlowStateChangeListener>() {
 
 			@Override
 			public void visit(final FlowStateChangeListener listener) throws Exception {
@@ -220,15 +222,6 @@ public class FlowContainer {
 	@Override
 	public String toString() {
 		return this.name + "-" + this._id;
-	}
-
-	private <FLOW> FlowContextImpl createFlowCtx(
-		final FLOW flow,
-		final EventHandler initHandler,
-        final ExectionLoop exectionLoop
-		) {
-	    return new FlowContextImpl(flow, exectionLoop, this._flowStateChangeListener)
-	        .setCurrentHandler(initHandler, null, null);
 	}
 
 	private final FlowStateChangeListener _flowStateChangeListener = new FlowStateChangeListener() {
@@ -263,7 +256,7 @@ public class FlowContainer {
 	private final String		name;
 	private	final int			_id;
 	
-	private	final AtomicInteger	totalFlowCount = new AtomicInteger(0);
+	private	final AtomicInteger	_totalFlowCount = new AtomicInteger(0);
 	
 	private	final AtomicLong dealHandledCount = new AtomicLong(0);
 	private	final AtomicLong dealCompletedCount = new AtomicLong(0);
