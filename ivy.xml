@@ -41,9 +41,9 @@
     </publications>
     <dependencies>
     
-		<dependency org="org.jocean" name="jocean-idiom" 
-			rev="0.0.6" conf="compile->default(*)"/>
-			
+        <dependency org="org.jocean" name="jocean-event" 
+            rev="0.0.1-SNAPSHOT" conf="compile->default(*)" changing="true"/>
+        
 		<dependency org="org.slf4j" name="slf4j-api" 
 			rev="1.7.6" conf="compile->default(*)" />
 			

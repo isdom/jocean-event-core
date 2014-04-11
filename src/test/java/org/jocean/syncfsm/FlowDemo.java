@@ -5,18 +5,15 @@ package org.jocean.syncfsm;
 
 import java.util.Random;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import org.jocean.event.api.AbstractFlow;
+import org.jocean.event.api.BizStep;
+import org.jocean.event.api.EventReceiver;
+import org.jocean.event.api.annotation.OnEvent;
+import org.jocean.event.api.internal.EventHandler;
 import org.jocean.idiom.Detachable;
 import org.jocean.idiom.ExectionLoop;
-import org.jocean.syncfsm.api.AbstractFlow;
-import org.jocean.syncfsm.api.BizStep;
-import org.jocean.syncfsm.api.EventHandler;
-import org.jocean.syncfsm.api.EventReceiver;
-import org.jocean.syncfsm.api.FlowSource;
-import org.jocean.syncfsm.api.annotation.OnEvent;
-import org.jocean.syncfsm.container.FlowContainer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author isdom
@@ -28,6 +25,11 @@ public class FlowDemo {
     		LoggerFactory.getLogger(FlowDemo.class);
 
     public class DemoFlow extends AbstractFlow<DemoFlow> {
+        BizStep INIT = new BizStep("INIT")
+            .handler( selfInvoker("onCoin") )
+            .handler( selfInvoker("onPass") )
+            .freeze();
+        
         final BizStep LOCKED = 
         		new BizStep("LOCKED")
         		.handler( selfInvoker("onCoin") )
@@ -59,49 +61,35 @@ public class FlowDemo {
     
 	private void run() throws Exception {
 		
-		final EventReceiver receiver = new FlowContainer("demo").genEventReceiverSource().create(
-    				new FlowSource<DemoFlow>() {
-    			
-    			@Override
-    			public DemoFlow getFlow() {
-    				return new DemoFlow();
-    			}
+	    final DemoFlow flow = new DemoFlow();
+	    final ExectionLoop exectionLoop = new ExectionLoop() {
 
-				@Override
-				public EventHandler getInitHandler(final DemoFlow flow) {
-		        	return new BizStep("INIT")
-		        		.handler( flow.selfInvoker("onCoin") )
-		        		.handler( flow.selfInvoker("onPass") )
-		        		.freeze();
-				}
+            @Override
+            public boolean inExectionLoop() {
+                return true;
+            }
 
-                @Override
-                public ExectionLoop getExectionLoop(final DemoFlow flow) {
-                    return new ExectionLoop() {
+            @Override
+            public Detachable submit(Runnable runnable) {
+                runnable.run();
+                return new Detachable() {
+                    @Override
+                    public void detach() {
+                    }};
+            }
 
-                        @Override
-                        public boolean inExectionLoop() {
-                            return true;
-                        }
-
-                        @Override
-                        public Detachable submit(Runnable runnable) {
-                            runnable.run();
-                            return new Detachable() {
-                                @Override
-                                public void detach() {
-                                }};
-                        }
-
-                        @Override
-                        public Detachable schedule(Runnable runnable, long delayMillis) {
-                            runnable.run();
-                            return new Detachable() {
-                                @Override
-                                public void detach() {
-                                }};
-                        }};
-                }});
+            @Override
+            public Detachable schedule(Runnable runnable, long delayMillis) {
+                runnable.run();
+                return new Detachable() {
+                    @Override
+                    public void detach() {
+                    }};
+            }};
+            
+		final EventReceiver receiver = 
+		        new FlowContainer("demo").genEventReceiverSource(exectionLoop)
+		            .create(flow,  flow.INIT) ;
     		
 		new Thread(new Runnable(){
 
@@ -130,7 +118,6 @@ public class FlowDemo {
 		final Random r = new Random();
 		
 		int i1 = r.nextInt();
-		int i2 = r.nextInt();
 		
 		return (i1 % 2 == 1 ? "coin" : "pass");
 	}

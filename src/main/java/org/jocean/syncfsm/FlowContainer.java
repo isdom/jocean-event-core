@@ -1,26 +1,26 @@
 /**
  * 
  */
-package org.jocean.syncfsm.container;
+package org.jocean.syncfsm;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.jocean.event.api.EventReceiver;
+import org.jocean.event.api.EventReceiverSource;
+import org.jocean.event.api.internal.EventHandler;
+import org.jocean.event.api.internal.Eventable;
+import org.jocean.event.api.internal.FlowLifecycleAware;
+import org.jocean.event.helper.FlowContext;
+import org.jocean.event.helper.FlowContextImpl;
+import org.jocean.event.helper.FlowStateChangeListener;
+import org.jocean.event.helper.FlowTracker;
 import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.Visitor;
-import org.jocean.syncfsm.api.EventHandler;
-import org.jocean.syncfsm.api.EventReceiver;
-import org.jocean.syncfsm.api.EventReceiverSource;
-import org.jocean.syncfsm.api.Eventable;
-import org.jocean.syncfsm.api.FlowLifecycleAware;
-import org.jocean.syncfsm.api.FlowSource;
-import org.jocean.syncfsm.common.FlowContext;
-import org.jocean.syncfsm.common.FlowStateChangeListener;
-import org.jocean.syncfsm.common.FlowTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,24 +41,12 @@ public class FlowContainer {
     	this._id = ALL_CONTAINER_COUNTER.incrementAndGet();
     }
 
-	public EventReceiverSource genEventReceiverSource() {
+	public EventReceiverSource genEventReceiverSource(final ExectionLoop exectionLoop) {
 		return	new EventReceiverSource() {
-
-			@Override
-			public <FLOW> EventReceiver create(final FlowSource<FLOW> source) {
-		        //  create new receiver
-		        final FLOW flow = source.getFlow();
-		        return  createEventReceiverOf(flow, source.getInitHandler(flow), source.getExectionLoop(flow));
-			}
-
-			@Override
-			public <FLOW> EventReceiver create(
-					final FLOW flow,
-					final EventHandler initHandler,
-                    final ExectionLoop exectionLoop
-					) {
-				return createEventReceiverOf(flow, initHandler, exectionLoop);
-			}};
+            @Override
+            public EventReceiver create(final Object flow, final EventHandler initState) {
+                return  createEventReceiverOf(flow, initState, exectionLoop);
+            }};
 	}
 	
 	public FlowTracker genFlowTracker() {
@@ -179,7 +167,7 @@ public class FlowContainer {
             final ExectionLoop exectionLoop 
 	        ) {
 		final FlowContextImpl newCtx = 
-	        new FlowContextImpl(flow, exectionLoop, this._flowStateChangeListener)
+	        new FlowContextImpl(flow, exectionLoop, null, this._flowStateChangeListener)
                 .setCurrentHandler(initHandler, null, null);
 		
 		if ( this._flowContexts.add(newCtx) ) {
