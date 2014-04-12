@@ -3,7 +3,7 @@
 <!--author: marvin.ma -->
 <!--date:2013-01-23 -->
 
-<project name="jocean-syncfsm" basedir=".">
+<project name="jocean-event-core" basedir=".">
 
     <!--设置下面要用到的属性-->
     <property name="module.name" value="${ant.project.name}" />
