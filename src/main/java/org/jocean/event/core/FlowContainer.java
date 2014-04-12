@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.jocean.syncfsm;
+package org.jocean.event.core;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -13,10 +13,6 @@ import org.jocean.event.api.EventReceiverSource;
 import org.jocean.event.api.internal.EventHandler;
 import org.jocean.event.api.internal.Eventable;
 import org.jocean.event.api.internal.FlowLifecycleAware;
-import org.jocean.event.helper.FlowContext;
-import org.jocean.event.helper.FlowContextImpl;
-import org.jocean.event.helper.FlowStateChangeListener;
-import org.jocean.event.helper.FlowTracker;
 import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;

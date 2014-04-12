@@ -10,6 +10,7 @@ import org.jocean.event.api.BizStep;
 import org.jocean.event.api.EventReceiver;
 import org.jocean.event.api.annotation.OnEvent;
 import org.jocean.event.api.internal.EventHandler;
+import org.jocean.event.core.FlowContainer;
 import org.jocean.idiom.Detachable;
 import org.jocean.idiom.ExectionLoop;
 import org.slf4j.Logger;
