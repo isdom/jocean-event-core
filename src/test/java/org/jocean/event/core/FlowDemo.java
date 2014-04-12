@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.jocean.syncfsm;
+package org.jocean.event.core;
 
 import java.util.Random;
 
