@@ -47,8 +47,8 @@
         <dependency org="org.jocean" name="jocean-idiom" rev="0.0.8-SNAPSHOT" 
             conf="compile->default(*)" changing="true"/>
         
-        <dependency org="org.jocean" name="jocean-event-api" rev="0.0.1" 
-            conf="compile->default(*)"/>
+        <dependency org="org.jocean" name="jocean-event-api" rev="0.0.2-SNAPSHOT" 
+            conf="compile->default(*)" changing="true"/>
         
         <dependency org="ch.qos.logback" name="logback-classic" rev="1.1.1" 
             conf="test->default(*)" />
