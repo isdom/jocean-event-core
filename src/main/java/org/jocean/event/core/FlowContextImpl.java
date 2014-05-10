@@ -10,8 +10,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.jocean.event.api.ArgsHandler;
-import org.jocean.event.api.ArgsHandlerSource;
 import org.jocean.event.api.EventUnhandleAware;
 import org.jocean.event.api.internal.EndReasonSource;
 import org.jocean.event.api.internal.EventHandler;
@@ -20,6 +18,8 @@ import org.jocean.event.api.internal.EventNameAware;
 import org.jocean.event.api.internal.Eventable;
 import org.jocean.event.api.internal.ExectionLoopAware;
 import org.jocean.event.api.internal.FlowLifecycleAware;
+import org.jocean.idiom.ArgsHandler;
+import org.jocean.idiom.ArgsHandlerSource;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.Pair;
@@ -329,7 +329,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
     
     private Object[] beforeAcceptArgs(final Object[] args) throws Exception {
         if ( null != this._argsHandler ) {
-            return this._argsHandler.beforeAcceptEvent(args);
+            return this._argsHandler.beforeInvoke(args);
         }
         else {
             return args;
@@ -339,7 +339,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
     private void afterDispatchArgs(final String event, final Object[] args) {
         if ( null != this._argsHandler ) {
             try {
-                this._argsHandler.afterAcceptEvent(args);
+                this._argsHandler.afterInvoke(args);
             } catch (Exception e) {
                 LOG.warn("exception when flow({})'s afterAcceptEvent for event:({}), detail:{},", 
                         this._flow, event, ExceptionUtils.exception2detail(e));
