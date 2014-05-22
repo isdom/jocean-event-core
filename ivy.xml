@@ -44,10 +44,10 @@
         <dependency org="org.slf4j" name="slf4j-api" rev="1.7.6" 
             conf="compile->default(*)" />
             
-        <dependency org="org.jocean" name="jocean-idiom" rev="0.0.8" 
+        <dependency org="org.jocean" name="jocean-idiom" rev="0.0.9" 
             conf="compile->default(*)"/>
         
-        <dependency org="org.jocean" name="jocean-event-api" rev="0.0.2" 
+        <dependency org="org.jocean" name="jocean-event-api" rev="0.0.3" 
             conf="compile->default(*)"/>
         
         <dependency org="ch.qos.logback" name="logback-classic" rev="1.1.1" 
