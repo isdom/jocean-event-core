@@ -110,11 +110,12 @@ public class FlowContainer {
 		        try {
 		            return ctx.processEvent(event, args);
 		        }
-		        catch (final Exception e) {
+		        catch (final Throwable e) {
 		            LOG.error("exception when flow({})'s processEvent, detail:{}, try end flow", 
 		                    ctx.getFlow(), ExceptionUtils.exception2detail(e));
 		            ctx.destroy();
-		            throw e;
+//		            throw e;
+		            return false;
 		        }
 			}
 
@@ -124,13 +125,20 @@ public class FlowContainer {
                 try {
                     return ctx.processEvent(eventable, args);
                 }
-                catch (final Exception e) {
+                catch (final Throwable e) {
                     LOG.error("exception when flow({})'s processEvent, detail:{}, try end flow", 
                             ctx.getFlow(), ExceptionUtils.exception2detail(e));
                     ctx.destroy();
-                    throw e;
+//                    throw e;
+                    return false;
                 }
-            }};
+            }
+            
+            @Override
+            public String toString() {
+                return "EventReceiver [flow=" + ctx.getFlow() +"]";
+            }
+		};
 	}
 	
 	public String getName() {
