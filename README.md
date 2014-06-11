@@ -10,3 +10,7 @@ TODO:
   2、在 Api/Core 中，支持在发送事件时，判断Eventable对象如果实现 ArgsHandlerSource接口，则进行事件参数的事件处理前/后的保护，以解决ReferenceCounted(引用计数)实例保护问题。
 
   3、定义 ExectionLoopSwitcher接口，允许实现了 ExectionLoopSwitcherAware 接口的 flow 可以手动指定其被执行的 ExectionLoop实例。
+
+2014-06-11： release 0.0.4 版本：
+  1、将 AbstractFlow.fireDelayEventAndPush 变更为 public 方法
+  2、http://rdassist.widget-inc.com:65480/browse/CHANNEL-103:改进 AbstractFlow 中的一次性定时器 启动和移除API，将内部保存定时器任务更改为由外部提供Collection<Detachable>来保存定时器任务
