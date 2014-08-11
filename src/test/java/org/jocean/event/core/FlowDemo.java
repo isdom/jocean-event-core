@@ -26,38 +26,35 @@ public class FlowDemo {
     		LoggerFactory.getLogger(FlowDemo.class);
 
     public class DemoFlow extends AbstractFlow<DemoFlow> {
-        BizStep INIT = new BizStep("INIT")
-            .handler( selfInvoker("onCoin") )
-            .handler( selfInvoker("onPass") )
-            .freeze();
         
-        final BizStep LOCKED = 
-        		new BizStep("LOCKED")
-        		.handler( selfInvoker("onCoin") )
+        final BizStep LOCKED = new BizStep("LOCKED") {
+                    @OnEvent(event="coin")
+                    BizStep onCoin() {
+                        System.out.println("handler:" + currentEventHandler() + ",event:" + currentEvent());
+                        LOG.info("{}: accept {}", new Object[]{
+                            currentEventHandler().getName(),  currentEvent()
+                        });
+                        return UNLOCKED;
+                    }
+                }
         		.freeze();
         		
-        final BizStep UNLOCKED = 
-        		new BizStep("UNLOCKED")  
-        		.handler( selfInvoker( "onPass") )
+        final BizStep UNLOCKED = new BizStep("UNLOCKED") {
+                    @OnEvent(event="pass")
+                    BizStep onPass() {
+                        System.out.println("handler:" + currentEventHandler() + ",event:" + currentEvent());
+                        LOG.info("{}: accept {}", new Object[]{
+                                currentEventHandler().getName(),  currentEvent()
+                            });
+                        return LOCKED;
+                    }
+                }
         		.freeze();
-
-		@OnEvent(event="coin")
-		EventHandler onCoin() {
-			System.out.println("handler:" + currentEventHandler() + ",event:" + currentEvent());
-			LOG.info("{}: accept {}", new Object[]{
-				currentEventHandler().getName(),  currentEvent()
-			});
-			return UNLOCKED;
-		}
-		  
-		@OnEvent(event="pass")
-		EventHandler onPass() {
-			System.out.println("handler:" + currentEventHandler() + ",event:" + currentEvent());
-			LOG.info("{}: accept {}", new Object[]{
-					currentEventHandler().getName(),  currentEvent()
-				});
-			return LOCKED;
-		}
+        		
+        final BizStep INIT = new BizStep("INIT")
+            .handlers( invokers(LOCKED) )
+            .handlers( invokers(UNLOCKED) )
+            .freeze();
     }
     
 	private void run() throws Exception {
