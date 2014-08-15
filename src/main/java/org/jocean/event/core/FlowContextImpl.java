@@ -181,7 +181,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
                 final Iterator<Pair<Object,Object[]>> iter = this._pendingEvents.iterator();
                 final Pair<Object, Object[]> eventAndArgs = iter.next();
                 notifyUnhandleEvent(eventAndArgs.getFirst(), eventAndArgs.getSecond());
-                afterDispatchArgs( obj2event(eventAndArgs.getFirst()), eventAndArgs.getSecond());
+                afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
                 iter.remove();
             }
             
@@ -231,7 +231,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
 
     private boolean pushPendingEvent(final Object eventable, final Object[] args) throws Exception {
         if (!isDestroyed()) {
-            this._pendingEvents.add(Pair.of(eventable, beforeAcceptArgs(args)));
+            this._pendingEvents.add(Pair.of(eventable, beforeAcceptArgs(eventable, args)));
             return true;
         } else {
             LOG.warn("flow {} already destroy, bypass pending event:({})", this._flow,
@@ -302,13 +302,13 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
                             this._flow, this._currentHandler.getName(), 
                             event, this._isActived.get());
                 }
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 LOG.warn("exception when flow({}) process event:({}), detail:{}",
                         this._flow, event,
                         ExceptionUtils.exception2detail(e));
             }
             finally {
-                afterDispatchArgs( event, eventAndArgs.getSecond());
+                afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
             }
         } else {
             setUnactive();
@@ -327,26 +327,63 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
         }
     }
     
-    private Object[] beforeAcceptArgs(final Object[] args) throws Exception {
+    private Object[] beforeAcceptArgs(final Object eventable, final Object[] args) 
+            throws Exception {
+        final Object[] processedArgs = preprocessArgsByArgsHandler(eventable, args);
         if ( null != this._argsHandler ) {
-            return this._argsHandler.beforeInvoke(args);
+            return this._argsHandler.beforeInvoke(processedArgs);
+        }
+        else {
+            return processedArgs;
+        }
+    }
+
+    /**
+     * @param eventable
+     * @param args
+     * @throws Exception
+     */
+    private Object[] preprocessArgsByArgsHandler(
+            final Object eventable,
+            final Object[] args) throws Exception {
+        if ( eventable instanceof ArgsHandler ) {
+            return ((ArgsHandler)eventable).beforeInvoke(args);
         }
         else {
             return args;
         }
     }
 
-    private void afterDispatchArgs(final String event, final Object[] args) {
+    private void afterDispatchArgs(final Object eventable, final Object[] args) {
+        postprocessArgsByArgsHandler(eventable, args);
         if ( null != this._argsHandler ) {
             try {
                 this._argsHandler.afterInvoke(args);
-            } catch (Exception e) {
-                LOG.warn("exception when flow({})'s afterAcceptEvent for event:({}), detail:{},", 
-                        this._flow, event, ExceptionUtils.exception2detail(e));
+            } catch (Throwable e) {
+                LOG.warn("exception when flow({})'s afterDispatchArgs for event:({}), detail:{},", 
+                        this._flow, eventable, ExceptionUtils.exception2detail(e));
             }
         }
     }
 
+    /**
+     * @param eventable
+     * @param args
+     * @throws Exception
+     */
+    private void postprocessArgsByArgsHandler(
+            final Object eventable,
+            final Object[] args) {
+        if ( eventable instanceof ArgsHandler ) {
+            try {
+                ((ArgsHandler)eventable).afterInvoke(args);
+            } catch (Throwable e) {
+                LOG.warn("exception when flow({})'s postprocessArgsByArgsHandler for event:({}), detail:{},", 
+                        this._flow, eventable, ExceptionUtils.exception2detail(e));
+            }
+        }
+    }
+    
     private void schedulePendingEvent(final String causeEvent) {
         if ( this._exectionLoop.inExectionLoop() ) {
             if ( LOG.isTraceEnabled()) {
