@@ -8,6 +8,7 @@ import java.util.Random;
 import org.jocean.event.api.AbstractFlow;
 import org.jocean.event.api.BizStep;
 import org.jocean.event.api.EventReceiver;
+import org.jocean.event.api.EventUnhandleException;
 import org.jocean.event.api.annotation.OnEvent;
 import org.jocean.idiom.Detachable;
 import org.jocean.idiom.ExectionLoop;
@@ -29,9 +30,7 @@ public class FlowDemo {
                     @OnEvent(event="coin")
                     BizStep onCoin() {
                         System.out.println("handler:" + currentEventHandler() + ",event:" + currentEvent());
-                        LOG.info("{}: accept {}", new Object[]{
-                            currentEventHandler().getName(),  currentEvent()
-                        });
+                        LOG.info("{}: accept {}", currentEventHandler().getName(),  currentEvent());
                         return UNLOCKED;
                     }
                 }
@@ -41,9 +40,7 @@ public class FlowDemo {
                     @OnEvent(event="pass")
                     BizStep onPass() {
                         System.out.println("handler:" + currentEventHandler() + ",event:" + currentEvent());
-                        LOG.info("{}: accept {}", new Object[]{
-                                currentEventHandler().getName(),  currentEvent()
-                            });
+                        LOG.info("{}: accept {}", currentEventHandler().getName(),  currentEvent());
                         return LOCKED;
                     }
                 }
