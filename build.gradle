@@ -16,5 +16,5 @@ dependencies {
     compile "org.jocean:jocean-event-api:0.0.7-SNAPSHOT"
     
     /* test */
-    testCompile "ch.qos.logback:logback-classic:1.1.1"
+    testCompile "ch.qos.logback:logback-classic:1.1.2"
 }
