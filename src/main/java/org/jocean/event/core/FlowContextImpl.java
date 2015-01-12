@@ -19,7 +19,6 @@ import org.jocean.event.api.internal.Eventable;
 import org.jocean.event.api.internal.ExectionLoopAware;
 import org.jocean.event.api.internal.FlowLifecycleAware;
 import org.jocean.idiom.ArgsHandler;
-import org.jocean.idiom.ArgsHandlerSource;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.Pair;
@@ -56,13 +55,6 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
         if (null == this._flow || null == this._exectionLoop) {
             throw new NullPointerException(
                     "invalid params: flow or exectionLoop is null");
-        }
-        
-        if ( this._flow instanceof ArgsHandlerSource ) {
-            this._argsHandler = ((ArgsHandlerSource)this._flow).getArgsHandler();
-        }
-        else {
-            this._argsHandler = null;
         }
         
         this._isFlowEventNameAware = (this._flow instanceof EventNameAware);
@@ -181,7 +173,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
                 final Iterator<Pair<Object,Object[]>> iter = this._pendingEvents.iterator();
                 final Pair<Object, Object[]> eventAndArgs = iter.next();
                 notifyUnhandleEvent(eventAndArgs.getFirst(), eventAndArgs.getSecond());
-                afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+                postprocessArgsByArgsHandler(eventAndArgs.getFirst(), eventAndArgs.getSecond());
                 iter.remove();
             }
             
@@ -231,7 +223,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
 
     private boolean pushPendingEvent(final Object eventable, final Object[] args) throws Exception {
         if (!isDestroyed()) {
-            this._pendingEvents.add(Pair.of(eventable, beforeAcceptArgs(eventable, args)));
+            this._pendingEvents.add(Pair.of(eventable, preprocessArgsByArgsHandler(eventable, args)));
             return true;
         } else {
             LOG.warn("flow {} already destroy, bypass pending event:({})", this._flow,
@@ -308,7 +300,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
                         ExceptionUtils.exception2detail(e));
             }
             finally {
-                afterDispatchArgs(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+                postprocessArgsByArgsHandler(eventAndArgs.getFirst(), eventAndArgs.getSecond());
             }
         } else {
             setUnactive();
@@ -327,17 +319,6 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
         }
     }
     
-    private Object[] beforeAcceptArgs(final Object eventable, final Object[] args) 
-            throws Exception {
-        final Object[] processedArgs = preprocessArgsByArgsHandler(eventable, args);
-        if ( null != this._argsHandler ) {
-            return this._argsHandler.beforeInvoke(processedArgs);
-        }
-        else {
-            return processedArgs;
-        }
-    }
-
     /**
      * @param eventable
      * @param args
@@ -347,23 +328,14 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
             final Object eventable,
             final Object[] args) throws Exception {
         if ( eventable instanceof ArgsHandler ) {
-            return ((ArgsHandler)eventable).beforeInvoke(args);
-        }
-        else {
-            return args;
-        }
-    }
-
-    private void afterDispatchArgs(final Object eventable, final Object[] args) {
-        postprocessArgsByArgsHandler(eventable, args);
-        if ( null != this._argsHandler ) {
             try {
-                this._argsHandler.afterInvoke(args);
+                return ((ArgsHandler)eventable).beforeInvoke(args);
             } catch (Throwable e) {
-                LOG.warn("exception when flow({})'s afterDispatchArgs for event:({}), detail:{},", 
+                LOG.warn("exception when flow({})'s preprocessArgsByArgsHandler for event:({}), detail:{},", 
                         this._flow, eventable, ExceptionUtils.exception2detail(e));
             }
         }
+        return args;
     }
 
     /**
@@ -548,7 +520,6 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
     private volatile EventHandler _currentHandler = null;
     private volatile Object _reason = null;
     private final Object _flow;
-    private final ArgsHandler _argsHandler;
     
     private final int _id = _IDSRC.getAndIncrement();
     
