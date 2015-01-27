@@ -16,6 +16,7 @@ import org.jocean.event.api.internal.FlowLifecycleAware;
 import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
+import org.jocean.idiom.ReflectUtils;
 import org.jocean.idiom.Visitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +43,16 @@ public class FlowContainer {
             @Override
             public EventReceiver create(final Object flow, final EventHandler initState) {
                 return  createEventReceiverOf(flow, initState, exectionLoop);
+            }
+
+            @Override
+            public EventReceiver createFromInnerState(final EventHandler initState) {
+                final Object flow = ReflectUtils.getOuterFromInnerObject(initState);
+                if (null == flow) {
+                    LOG.warn("invalid inner initState {},can't get it's outer flow.", initState);
+                    throw new RuntimeException("invalid inner initState " + initState +",can't get it's outer flow.");
+                }
+                return createEventReceiverOf(flow, initState, exectionLoop);
             }};
 	}
 	
