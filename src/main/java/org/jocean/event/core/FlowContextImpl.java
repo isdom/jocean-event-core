@@ -9,6 +9,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.jocean.event.api.EventUnhandleAware;
 import org.jocean.event.api.internal.EndReasonSource;
@@ -164,75 +166,94 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
     }
 	
     public void destroy() {
-        if (this._isAlive.compareAndSet(true, false)) {
-            
-            if ( logger.isTraceEnabled() ) {
-                logger.trace("flow({}) destroy with currentHandler({})", this._flow, 
-                        ( null == this._currentHandler ? "null" : this._currentHandler.getName()));
+        this._destroyingLock.writeLock().lock();
+        try {
+            if (this._isAlive.compareAndSet(true, false)) {
+                doDestroy();
             }
-            
-            this._lastModify = System.currentTimeMillis();
-            
-            setUnactive();
-            
-            //  clear pending event and args
-            while (!this._pendingEvents.isEmpty()) {
-                final Iterator<Pair<Object,Object[]>> iter = this._pendingEvents.iterator();
-                final Pair<Object, Object[]> eventAndArgs = iter.next();
-                notifyUnhandleEvent(eventAndArgs.getFirst(), eventAndArgs.getSecond());
-                postprocessArgsByArgsHandler(eventAndArgs.getFirst(), eventAndArgs.getSecond());
-                iter.remove();
+        } finally {
+            this._destroyingLock.writeLock().unlock();
+        }
+    }
+
+    private void doDestroy() {
+        if ( logger.isTraceEnabled() ) {
+            logger.trace("flow({}) destroy with currentHandler({})", this._flow, 
+                    ( null == this._currentHandler ? "null" : this._currentHandler.getName()));
+        }
+        
+        this._lastModify = System.currentTimeMillis();
+        
+        setUnactive();
+        
+        //  clear pending event and args
+        while (!this._pendingEvents.isEmpty()) {
+            final Iterator<Pair<Object,Object[]>> iter = this._pendingEvents.iterator();
+            final Pair<Object, Object[]> eventAndArgs = iter.next();
+            notifyUnhandleEvent(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+            postprocessArgsByArgsHandler(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+            iter.remove();
+        }
+        
+        if ( this._isFlowHasEndReason ) {
+            // fetch end reason
+            try {
+                this._reason = ( ((EndReasonSource)this._flow).getEndReason() );
             }
-            
-            if ( this._isFlowHasEndReason ) {
-                // fetch end reason
-                try {
-                    this._reason = ( ((EndReasonSource)this._flow).getEndReason() );
-                }
-                catch (Exception e) {
-                    logger.error("exception when getEndReason: flow {}, detail: {}",
-                            this._flow, ExceptionUtils.exception2detail(e));
-                }
+            catch (Exception e) {
+                logger.error("exception when getEndReason: flow {}, detail: {}",
+                        this._flow, ExceptionUtils.exception2detail(e));
             }
-            
-            if ( null != this._stateChangeListener ) {
-                try {
-                    this._stateChangeListener.afterFlowDestroy(this);
-                }
-                catch (Exception e) {
-                    logger.warn("exception when _stateChangeListener.afterFlowDestroy for flow({}), detail:{}",
-                            this._flow, ExceptionUtils.exception2detail(e));
-                }
+        }
+        
+        if ( null != this._stateChangeListener ) {
+            try {
+                this._stateChangeListener.afterFlowDestroy(this);
             }
-            
-            if ( this._flow instanceof FlowLifecycleAware ) {
-                try {
-                    ((FlowLifecycleAware)this._flow).afterFlowDestroy();
-                }
-                catch (Exception e) {
-                    logger.error("exception when invoke flow {}'s afterFlowDestroy, detail: {}",
-                            this._flow, ExceptionUtils.exception2detail(e));
-                }
+            catch (Exception e) {
+                logger.warn("exception when _stateChangeListener.afterFlowDestroy for flow({}), detail:{}",
+                        this._flow, ExceptionUtils.exception2detail(e));
+            }
+        }
+        
+        if ( this._flow instanceof FlowLifecycleAware ) {
+            try {
+                ((FlowLifecycleAware)this._flow).afterFlowDestroy();
+            }
+            catch (Exception e) {
+                logger.error("exception when invoke flow {}'s afterFlowDestroy, detail: {}",
+                        this._flow, ExceptionUtils.exception2detail(e));
             }
         }
     }
     
 	public boolean isDestroyed() {
-		return !this._isAlive.get();
+        return !this._isAlive.get();
 	}
 
     private Pair<Object, Object[]> popPendingEvent() {
-        if (isDestroyed()) {
-            return null;
+        this._destroyingLock.readLock().lock();
+        try {
+            if (isDestroyed()) {
+                return null;
+            }
+            return this._pendingEvents.poll();
+        } finally {
+            this._destroyingLock.readLock().unlock();
         }
-        return this._pendingEvents.poll();
     }
 
     private boolean pushPendingEvent(final Object eventable, final Object[] args) throws Exception {
+        this._destroyingLock.readLock().lock();
         if (!isDestroyed()) {
-            this._pendingEvents.add(Pair.of(eventable, preprocessArgsByArgsHandler(eventable, args)));
+            try {
+                this._pendingEvents.add(Pair.of(eventable, preprocessArgsByArgsHandler(eventable, args)));
+            } finally {
+                this._destroyingLock.readLock().unlock();
+            }
             return true;
         } else {
+            this._destroyingLock.readLock().unlock();
             logger.warn("flow {} already destroy, ignore pending event:({})", this._flow,
                     obj2event(eventable));
             notifyUnhandleEvent(eventable, args);
@@ -257,10 +278,15 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
     }
 
     private boolean hasPendingEvent() {
-        if (isDestroyed()) {
-            return false;
+        this._destroyingLock.readLock().lock();
+        try {
+            if (isDestroyed()) {
+                return false;
+            }
+            return !this._pendingEvents.isEmpty();
+        } finally {
+            this._destroyingLock.readLock().unlock();
         }
-        return !this._pendingEvents.isEmpty();
     }
 
     private void dispatchPendingEvent() {
@@ -523,6 +549,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
     private volatile long _lastActiveTime;
 
     private final AtomicBoolean _isAlive = new AtomicBoolean(true);
+    private final ReadWriteLock _destroyingLock = new ReentrantReadWriteLock(false);
 
     private volatile EventHandler _currentHandler = null;
     private volatile Object _reason = null;

@@ -12,6 +12,16 @@ TODO:
 
   3、定义 ExectionLoopSwitcher接口，允许实现了 ExectionLoopSwitcherAware 接口的 flow 可以手动指定其被执行的 ExectionLoop实例。
 
+  4、可能存在 pushPendingEvent 与 destroy 中的  while (!this._pendingEvents.isEmpty()) {
+                final Iterator<Pair<Object,Object[]>> iter = this._pendingEvents.iterator();
+                final Pair<Object, Object[]> eventAndArgs = iter.next();
+                notifyUnhandleEvent(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+                postprocessArgsByArgsHandler(eventAndArgs.getFirst(), eventAndArgs.getSecond());
+                iter.remove();
+            }
+            
+     该段代码，存在多线程时，_pendingEvents中的events没有全部处理完成。TO fix
+  
 2014-08-19： release 0.1.4 版本：
   1、在FlowContextImpl实现中支持 Eventable 具象类实现 ArgsHandler接口，此时会调用ArgsHandler.beforeInvoke / ArgsHandler.afterInvoke 对参数进行生命周期的保护
 
