@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.jocean.event.api.BizStep;
 import org.jocean.event.api.EventUnhandleAware;
 import org.jocean.event.api.internal.EndReasonSource;
 import org.jocean.event.api.internal.EventHandler;
@@ -495,7 +496,10 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
             }
             return  eventHandled;
         }
-        else if ( currentHandler.equals( nextHandler ) ) {
+        else if ( currentHandler.equals( nextHandler ) 
+                //  return handler is BizStep.CURRENT_BIZSTEP
+                //  so keep current handler unchanged
+                || nextHandler == BizStep.CURRENT_BIZSTEP) {
             // no change
         }
         else {
