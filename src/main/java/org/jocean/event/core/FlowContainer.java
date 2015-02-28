@@ -124,7 +124,7 @@ public class FlowContainer {
 		        catch (final Throwable e) {
 		            LOG.error("exception when flow({})'s processEvent, detail:{}, try end flow", 
 		                    ctx.getFlow(), ExceptionUtils.exception2detail(e));
-		            ctx.destroy();
+		            ctx.destroy(event, args);
 //		            throw e;
 		            return false;
 		        }
@@ -139,7 +139,7 @@ public class FlowContainer {
                 catch (final Throwable e) {
                     LOG.error("exception when flow({})'s processEvent, detail:{}, try end flow", 
                             ctx.getFlow(), ExceptionUtils.exception2detail(e));
-                    ctx.destroy();
+                    ctx.destroy(eventable.event(), args);
 //                    throw e;
                     return false;
                 }
