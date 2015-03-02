@@ -8,8 +8,8 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.jocean.event.api.EventEngine;
 import org.jocean.event.api.EventReceiver;
-import org.jocean.event.api.EventReceiverSource;
 import org.jocean.event.api.internal.EventHandler;
 import org.jocean.event.api.internal.Eventable;
 import org.jocean.event.api.internal.FlowLifecycleAware;
@@ -38,8 +38,8 @@ public class FlowContainer {
     	this._id = ALL_CONTAINER_COUNTER.incrementAndGet();
     }
 
-	public EventReceiverSource genEventReceiverSource(final ExectionLoop exectionLoop) {
-		return	new EventReceiverSource() {
+	public EventEngine buildEventEngine(final ExectionLoop exectionLoop) {
+		return	new EventEngine() {
             @Override
             public EventReceiver create(final Object flow, final EventHandler initState) {
                 return  createEventReceiverOf(flow, initState, exectionLoop);

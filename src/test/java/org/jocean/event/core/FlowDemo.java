@@ -8,9 +8,7 @@ import java.util.Random;
 import org.jocean.event.api.AbstractFlow;
 import org.jocean.event.api.BizStep;
 import org.jocean.event.api.EventReceiver;
-import org.jocean.event.api.EventUnhandleException;
 import org.jocean.event.api.annotation.OnEvent;
-import org.jocean.idiom.Detachable;
 import org.jocean.idiom.ExectionLoop;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +22,7 @@ public class FlowDemo {
     private static final Logger LOG = 
     		LoggerFactory.getLogger(FlowDemo.class);
 
-    public class DemoFlow extends AbstractFlow<DemoFlow> {
+    public static class DemoFlow extends AbstractFlow<DemoFlow> {
         
         final BizStep LOCKED = new BizStep("LOCKED") {
                     @OnEvent(event="coin")
@@ -46,7 +44,7 @@ public class FlowDemo {
                 }
         		.freeze();
         		
-        final BizStep INIT = new BizStep("INIT")
+        final BizStep INIT = new BizStep("INIT") {}
             .handler( handlersOf(LOCKED) )
             .handler( handlersOf(UNLOCKED) )
             .freeze();
@@ -54,35 +52,9 @@ public class FlowDemo {
     
 	private void run() throws Exception {
 		
-	    final DemoFlow flow = new DemoFlow();
-	    final ExectionLoop exectionLoop = new ExectionLoop() {
-
-            @Override
-            public boolean inExectionLoop() {
-                return true;
-            }
-
-            @Override
-            public Detachable submit(Runnable runnable) {
-                runnable.run();
-                return new Detachable() {
-                    @Override
-                    public void detach() {
-                    }};
-            }
-
-            @Override
-            public Detachable schedule(Runnable runnable, long delayMillis) {
-                runnable.run();
-                return new Detachable() {
-                    @Override
-                    public void detach() {
-                    }};
-            }};
-            
 		final EventReceiver receiver = 
-		        new FlowContainer("demo").genEventReceiverSource(exectionLoop)
-		            .create(flow,  flow.INIT) ;
+		        new FlowContainer("demo").buildEventEngine(ExectionLoop.immediateLoop)
+		            .createFromInnerState(new DemoFlow().INIT) ;
     		
 		new Thread(new Runnable(){
 
