@@ -10,13 +10,13 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.jocean.event.api.EventEngine;
 import org.jocean.event.api.EventReceiver;
+import org.jocean.event.api.FlowLifecycleListener;
 import org.jocean.event.api.internal.EventHandler;
 import org.jocean.event.api.internal.Eventable;
-import org.jocean.event.api.internal.FlowLifecycleAware;
 import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
-import org.jocean.idiom.ReflectUtils;
+import org.jocean.idiom.InterfaceUtils;
 import org.jocean.idiom.Visitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,18 +41,8 @@ public class FlowContainer {
 	public EventEngine buildEventEngine(final ExectionLoop exectionLoop) {
 		return	new EventEngine() {
             @Override
-            public EventReceiver create(final Object flow, final EventHandler initState) {
-                return  createEventReceiverOf(flow, initState, exectionLoop);
-            }
-
-            @Override
-            public EventReceiver createFromInnerState(final EventHandler initState) {
-                final Object flow = ReflectUtils.getOuterFromInnerObject(initState);
-                if (null == flow) {
-                    LOG.warn("invalid inner initState {},can't get it's outer flow.", initState);
-                    throw new RuntimeException("invalid inner initState " + initState +",can't get it's outer flow.");
-                }
-                return createEventReceiverOf(flow, initState, exectionLoop);
+            public EventReceiver create(final String name, final EventHandler init, final Object... reactors) {
+                return  createEventReceiverOf(name, init, reactors, exectionLoop);
             }};
 	}
 	
@@ -86,23 +76,26 @@ public class FlowContainer {
 		};
 	}
 
-	private <FLOW> EventReceiver createEventReceiverOf(
-	        final FLOW flow, 
+	private EventReceiver createEventReceiverOf(
+	        final String name, 
 	        final EventHandler initHandler,
+	        final Object[] reactors,
             final ExectionLoop exectionLoop
 	        ) {
 		//	create new receiver
-		final FlowContextImpl ctx = initFlowCtx(flow, initHandler, exectionLoop);
+		final FlowContextImpl ctx = initFlowCtx(name, reactors, initHandler, exectionLoop);
 		
-        final EventReceiver newReceiver = genEventReceiverWithCtx(ctx);
+        final EventReceiver newReceiver = genEventReceiverWithCtx(name, ctx);
         
-		if ( flow instanceof FlowLifecycleAware ) {
+        final FlowLifecycleListener lifecycleListener = 
+        		InterfaceUtils.compositeByType(reactors, FlowLifecycleListener.class);
+		if (null!=lifecycleListener) {
 			try {
-				((FlowLifecycleAware)flow).afterEventReceiverCreated(newReceiver);
+				lifecycleListener.afterEventReceiverCreated(newReceiver);
 			}
 			catch (Exception e) {
 				LOG.error("exception when invoke flow {}'s afterEventReceiverCreated, detail: {}",
-						flow, ExceptionUtils.exception2detail(e));
+						name, ExceptionUtils.exception2detail(e));
 			}
 		}
 		
@@ -110,10 +103,11 @@ public class FlowContainer {
 	}
 	
 	/**
+	 * @param name
 	 * @param ctx
 	 * @return
 	 */
-	private EventReceiver genEventReceiverWithCtx(final FlowContextImpl ctx) {
+	private EventReceiver genEventReceiverWithCtx(final String name, final FlowContextImpl ctx) {
 		return	new EventReceiver() {
 
 			@Override
@@ -123,7 +117,7 @@ public class FlowContainer {
 		        }
 		        catch (final Throwable e) {
 		            LOG.error("exception when flow({})'s processEvent, detail:{}, try end flow", 
-		                    ctx.getFlow(), ExceptionUtils.exception2detail(e));
+		                    this, ExceptionUtils.exception2detail(e));
 		            ctx.destroy(event, args);
 //		            throw e;
 		            return false;
@@ -138,7 +132,7 @@ public class FlowContainer {
                 }
                 catch (final Throwable e) {
                     LOG.error("exception when flow({})'s processEvent, detail:{}, try end flow", 
-                            ctx.getFlow(), ExceptionUtils.exception2detail(e));
+                            this, ExceptionUtils.exception2detail(e));
                     ctx.destroy(eventable.event(), args);
 //                    throw e;
                     return false;
@@ -147,7 +141,9 @@ public class FlowContainer {
             
             @Override
             public String toString() {
-                return "EventReceiver [flow=" + ctx.getFlow() +"]";
+                return null != name 
+            		? "EventReceiver [" + name +"]"
+            		: super.toString();
             }
 		};
 	}
@@ -177,12 +173,13 @@ public class FlowContainer {
 	}
 
 	private FlowContextImpl initFlowCtx(
-	        final Object flow, 
+			final String 	name,
+	        final Object[] 	reactors, 
 	        final EventHandler initHandler,
             final ExectionLoop exectionLoop 
 	        ) {
 		final FlowContextImpl newCtx = 
-	        new FlowContextImpl(flow, exectionLoop, null, this._flowStateChangeListener)
+	        new FlowContextImpl(name, reactors, exectionLoop, null, this._flowStateChangeListener)
                 .setCurrentHandler(initHandler, null, null);
 		
 		if ( this._flowContexts.add(newCtx) ) {
@@ -266,6 +263,6 @@ public class FlowContainer {
 	private	final AtomicLong dealBypassCount = new AtomicLong(0);
 	
 	private final COWCompositeSupport<FlowStateChangeListener> _flowStateChangeListenerSupport
-		= new COWCompositeSupport<FlowStateChangeListener>();
+		= new COWCompositeSupport<>();
 	
 }

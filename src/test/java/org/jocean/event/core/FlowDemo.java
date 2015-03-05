@@ -52,9 +52,10 @@ public class FlowDemo {
     
 	private void run() throws Exception {
 		
+		final DemoFlow demo = new DemoFlow();
 		final EventReceiver receiver = 
 		        new FlowContainer("demo").buildEventEngine(ExectionLoop.immediateLoop)
-		            .createFromInnerState(new DemoFlow().INIT) ;
+		            .create("demo", demo.INIT, demo);
     		
 		new Thread(new Runnable(){
 
