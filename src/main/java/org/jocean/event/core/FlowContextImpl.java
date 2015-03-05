@@ -50,6 +50,11 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
 
     private final Logger logger;
     
+	@Override
+	public String toString() {
+		return "Flow [" + this._name+ "]";
+	}
+
 	@SuppressWarnings("unchecked")
 	public FlowContextImpl(
 			final String		name,
@@ -57,7 +62,7 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
 	        final ExectionLoop 	exectionLoop, 
 			final StatusReactor statusReactor,
             final FlowStateChangeListener stateChangeListener) {
-		this._name = null != name ? name : toString();
+		this._name = null != name ? name : super.toString();
 		this._exectionLoop = exectionLoop;
         this._statusReactor = statusReactor;
         this._stateChangeListener = stateChangeListener;
