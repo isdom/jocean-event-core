@@ -22,4 +22,18 @@ public interface FlowContext {
 	public long getTimeToActive();
 
 	public long getTimeToLive();
+	
+	public interface ReactorBuilder {
+		/**
+		 * @param ctx
+		 * @return	reactors 0~N个反应器实例, 反应器可以为: 
+	     *  EventNameAware, 
+			EventHandlerAware, 
+			EndReasonProvider,
+			ExectionLoopAware,
+			FlowLifecycleListener, 
+			FlowStateChangedListener
+		 */
+		public Object[] buildReactors(final FlowContext ctx);
+	}
 }
