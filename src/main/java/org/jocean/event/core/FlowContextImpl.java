@@ -55,17 +55,13 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
 		return "Flow [" + this._name+ "]";
 	}
 
-	@SuppressWarnings("unchecked")
 	public FlowContextImpl(
 			final String		name,
-	        final Object[] 		reactors, 
 	        final ExectionLoop 	exectionLoop, 
-			final StatusReactor statusReactor,
-            final FlowStateChangeListener stateChangeListener) {
+			final StatusReactor statusReactor) {
 		this._name = null != name ? name : super.toString();
 		this._exectionLoop = exectionLoop;
         this._statusReactor = statusReactor;
-        this._stateChangeListener = stateChangeListener;
         
         if (null == this._exectionLoop) {
             throw new NullPointerException(
@@ -77,7 +73,10 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
 //                ? ((Slf4jLoggerSource)flow).getLogger() 
 //                : 
                 	DEFAULT_LOG;
-        
+    }
+
+	@SuppressWarnings("unchecked")
+	public void setReactors(final Object[] reactors) {
         this._eventNameAware = InterfaceUtils.compositeByType(reactors, EventNameAware.class);
         this._eventHandlerAware = InterfaceUtils.compositeByType(reactors, EventHandlerAware.class);
         this._endReasonProvider = InterfaceUtils.compositeByType(reactors, EndReasonProvider.class);
@@ -102,8 +101,8 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
                         this._name, ExceptionUtils.exception2detail(e));
             }
         }
-    }
-
+	}
+	
     @Override
     public int compareTo(final FlowContextImpl o) {
         return this._id - o._id;
@@ -158,16 +157,6 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
         if (((this._currentHandler == null) && (handler != null))
                 || ((this._currentHandler != null) && !this._currentHandler
                         .equals(handler))) {
-            if ( null != this._stateChangeListener ) {
-                try {
-                    this._stateChangeListener.beforeFlowChangeTo(this, handler, causeEvent, causeArgs);
-                }
-                catch (Exception e) {
-                    logger.warn("exception when _stateChangeListener.beforeFlowChangeTo for flow({}) with next handler({}), event:({}), detail:{}",
-                            this._name, handler.getName(), causeEvent, ExceptionUtils.exception2detail(e));
-                }
-            }
-            
             if (null!=this._flowStateChangedListener) {
             	try {
             		_flowStateChangedListener.onStateChanged(
@@ -232,16 +221,6 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
                 logger.warn("exception when _flow.onStateChanged for flow({}) when doDestroy, event:({}), detail:{}",
                         this._name, causeEvent, ExceptionUtils.exception2detail(e));
 			}
-        }
-        
-        if ( null != this._stateChangeListener ) {
-            try {
-                this._stateChangeListener.afterFlowDestroy(this);
-            }
-            catch (Exception e) {
-                logger.warn("exception when _stateChangeListener.afterFlowDestroy for flow({}), detail:{}",
-                        this._name, ExceptionUtils.exception2detail(e));
-            }
         }
         
         if (null!=this._flowLifecycleListener) {
@@ -564,14 +543,13 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
     private final ExectionLoop _exectionLoop;
     
     private final StatusReactor _statusReactor;
-    private final FlowStateChangeListener _stateChangeListener;
     
-    private final EventNameAware 	_eventNameAware;
-    private final EventHandlerAware _eventHandlerAware;
-    private final EndReasonProvider _endReasonProvider;
-    private final ExectionLoopAware _exectionLoopAware;
-    private final FlowLifecycleListener 	_flowLifecycleListener;
-    private final FlowStateChangedListener<EventHandler>	_flowStateChangedListener;
+    private EventNameAware 	_eventNameAware;
+    private EventHandlerAware _eventHandlerAware;
+    private EndReasonProvider _endReasonProvider;
+    private ExectionLoopAware _exectionLoopAware;
+    private FlowLifecycleListener 	_flowLifecycleListener;
+    private FlowStateChangedListener<EventHandler>	_flowStateChangedListener;
     
     private final AtomicBoolean _isActived = new AtomicBoolean(false);
 

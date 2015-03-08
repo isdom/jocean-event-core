@@ -3,6 +3,7 @@
  */
 package org.jocean.event.core;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -11,13 +12,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.jocean.event.api.EventEngine;
 import org.jocean.event.api.EventReceiver;
 import org.jocean.event.api.FlowLifecycleListener;
+import org.jocean.event.api.FlowStateChangedListener;
 import org.jocean.event.api.internal.EventHandler;
 import org.jocean.event.api.internal.Eventable;
-import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.InterfaceUtils;
-import org.jocean.idiom.Visitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,36 +46,6 @@ public class FlowContainer {
             }};
 	}
 	
-	public FlowTracker genFlowTracker() {
-		
-		return	new FlowTracker() {
-			@Override
-			public void registerFlowStateChangeListener(
-					final FlowStateChangeListener listener) {
-				if ( null == listener ) {
-					LOG.warn("registerFlowStateChangeListener: listener is null, just ignore");
-				}
-				else {
-					if ( !_flowStateChangeListenerSupport.addComponent(listener) ) {
-						LOG.warn("registerFlowStateChangeListener: listener {} has already registered", 
-								listener);
-					}
-				}
-			}
-			
-			@Override
-			public void unregisterFlowStateChangeListener(
-					final FlowStateChangeListener listener) {
-				if ( null == listener ) {
-					LOG.warn("unregisterFlowStateChangeListener: listener is null, just ignore");
-				}
-				else {
-					_flowStateChangeListenerSupport.removeComponent(listener);
-				}
-			}
-		};
-	}
-
 	private EventReceiver createEventReceiverOf(
 	        final String name, 
 	        final EventHandler initHandler,
@@ -179,9 +149,11 @@ public class FlowContainer {
             final ExectionLoop exectionLoop 
 	        ) {
 		final FlowContextImpl newCtx = 
-	        new FlowContextImpl(name, reactors, exectionLoop, null, this._flowStateChangeListener)
-                .setCurrentHandler(initHandler, null, null);
+	        new FlowContextImpl(name, exectionLoop, null);
 		
+		newCtx.setReactors(addReactors(reactors, newCtx));
+        newCtx.setCurrentHandler(initHandler, null, null);
+				
 		if ( this._flowContexts.add(newCtx) ) {
     		// add new context
     		this._totalFlowCount.incrementAndGet();
@@ -191,6 +163,25 @@ public class FlowContainer {
         
 		return	newCtx;
 	}
+
+	private Object[] addReactors(final Object[] reactors,
+			final FlowContextImpl newCtx) {
+		final Object[] newReactors = Arrays.copyOf(reactors, reactors.length + 1);
+		newReactors[newReactors.length-1] = new FlowStateChangedListener<EventHandler>() {
+
+			@Override
+			public void onStateChanged(
+					final EventHandler prev, 
+					final EventHandler next,
+					final String causeEvent, 
+					final Object[] causeArgs) throws Exception {
+				if (null==next) {
+					onFlowCtxDestroyed(newCtx);
+				}
+			}
+		};
+		return newReactors;
+	}
 	
 	private void onFlowCtxDestroyed(final FlowContextImpl ctx) {
 		if ( this._flowContexts.remove(ctx) ) {
@@ -199,13 +190,6 @@ public class FlowContainer {
 		}
 		
 		incDealCompletedCount();
-		
-		this._flowStateChangeListenerSupport.foreachComponent(new Visitor<FlowStateChangeListener>() {
-
-			@Override
-			public void visit(final FlowStateChangeListener listener) throws Exception {
-				listener.afterFlowDestroy(ctx);
-			}});
 	}
 
 	private void incDealHandledCount() {
@@ -224,32 +208,6 @@ public class FlowContainer {
 		return this.name + "-" + this._id;
 	}
 
-	private final FlowStateChangeListener _flowStateChangeListener = new FlowStateChangeListener() {
-
-        @Override
-        public void beforeFlowChangeTo(
-                final FlowContext ctx,
-                final EventHandler nextHandler, 
-                final String causeEvent, 
-                final Object[] causeArgs)
-                throws Exception {
-            //  if causeEvent is null, means it's initHandler
-            if ( null != causeEvent ) {
-                _flowStateChangeListenerSupport.foreachComponent(
-                        new Visitor<FlowStateChangeListener>() {
-                    @Override
-                    public void visit(final FlowStateChangeListener listener)
-                            throws Exception {
-                        listener.beforeFlowChangeTo(ctx, nextHandler, causeEvent, causeArgs);
-                    }});
-            }
-        }
-
-        @Override
-        public void afterFlowDestroy(final FlowContext ctx) throws Exception {
-            onFlowCtxDestroyed((FlowContextImpl)ctx);
-        }};
-	
 	private	final Set<FlowContextImpl> _flowContexts = 
 			new ConcurrentSkipListSet<FlowContextImpl>();
 	
@@ -261,8 +219,4 @@ public class FlowContainer {
 	private	final AtomicLong dealHandledCount = new AtomicLong(0);
 	private	final AtomicLong dealCompletedCount = new AtomicLong(0);
 	private	final AtomicLong dealBypassCount = new AtomicLong(0);
-	
-	private final COWCompositeSupport<FlowStateChangeListener> _flowStateChangeListenerSupport
-		= new COWCompositeSupport<>();
-	
 }
