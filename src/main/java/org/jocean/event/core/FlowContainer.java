@@ -3,7 +3,9 @@
  */
 package org.jocean.event.core;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,9 +17,12 @@ import org.jocean.event.api.FlowLifecycleListener;
 import org.jocean.event.api.FlowStateChangedListener;
 import org.jocean.event.api.internal.EventHandler;
 import org.jocean.event.api.internal.Eventable;
+import org.jocean.event.core.FlowContext.ReactorBuilder;
+import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.InterfaceUtils;
+import org.jocean.idiom.Visitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +50,29 @@ public class FlowContainer {
                 return  createEventReceiverOf(name, init, reactors, exectionLoop);
             }};
 	}
+	
+    public void addReactorBuilder(
+            final FlowContext.ReactorBuilder builder) {
+        if ( null == builder ) {
+            LOG.warn("addReactorBuilder: builder is null, just ignore");
+        }
+        else {
+            if ( !_reactorBuilderSupport.addComponent(builder) ) {
+                LOG.warn("addReactorBuilder: builder {} has already added", 
+                		builder);
+            }
+        }
+    }
+
+    public void removeReactorBuilder(
+    		final FlowContext.ReactorBuilder builder) {
+        if ( null == builder ) {
+            LOG.warn("removeReactorBuilder: builder is null, just ignore");
+        }
+        else {
+            _reactorBuilderSupport.removeComponent(builder);
+        }
+    }
 	
 	private EventReceiver createEventReceiverOf(
 	        final String name, 
@@ -166,9 +194,30 @@ public class FlowContainer {
 
 	private Object[] addReactors(final Object[] reactors,
 			final FlowContextImpl newCtx) {
-		final Object[] newReactors = Arrays.copyOf(reactors, reactors.length + 1);
-		newReactors[newReactors.length-1] = new FlowStateChangedListener<EventHandler>() {
+		if (this._reactorBuilderSupport.isEmpty()) {
+			final Object[] newReactors = Arrays.copyOf(reactors, reactors.length + 1);
+			newReactors[newReactors.length-1] = hookOnFlowCtxDestoryed(newCtx);
+			return newReactors;
+		}
+		else {
+			final List<Object> newReactors = new ArrayList<>();
+			newReactors.addAll(Arrays.asList(reactors));
+			newReactors.add(hookOnFlowCtxDestoryed(newCtx));
+			this._reactorBuilderSupport.foreachComponent(new Visitor<ReactorBuilder> () {
+				@Override
+				public void visit(final ReactorBuilder builder) throws Exception {
+					final Object[] ret = builder.buildReactors(newCtx);
+					if (null!=ret && ret.length>0) {
+						newReactors.addAll(Arrays.asList(ret));
+					}
+				}});
+			return newReactors.toArray();
+		}
+	}
 
+	private FlowStateChangedListener<EventHandler> hookOnFlowCtxDestoryed(
+			final FlowContextImpl ctx) {
+		return new FlowStateChangedListener<EventHandler>() {
 			@Override
 			public void onStateChanged(
 					final EventHandler prev, 
@@ -176,11 +225,10 @@ public class FlowContainer {
 					final String causeEvent, 
 					final Object[] causeArgs) throws Exception {
 				if (null==next) {
-					onFlowCtxDestroyed(newCtx);
+					onFlowCtxDestroyed(ctx);
 				}
 			}
 		};
-		return newReactors;
 	}
 	
 	private void onFlowCtxDestroyed(final FlowContextImpl ctx) {
@@ -213,6 +261,9 @@ public class FlowContainer {
 	
 	private final String		name;
 	private	final int			_id;
+	
+    private final COWCompositeSupport<FlowContext.ReactorBuilder> _reactorBuilderSupport
+    	= new COWCompositeSupport<FlowContext.ReactorBuilder>();
 	
 	private	final AtomicInteger	_totalFlowCount = new AtomicInteger(0);
 	
