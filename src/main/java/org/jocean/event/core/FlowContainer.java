@@ -109,7 +109,7 @@ public class FlowContainer {
 		return	new EventReceiver() {
 
 			@Override
-			public boolean acceptEvent(final String event, final Object... args) throws Exception {
+			public boolean acceptEvent(final String event, final Object... args) {
 		        try {
 		            return ctx.processEvent(event, args);
 		        }
@@ -123,8 +123,7 @@ public class FlowContainer {
 			}
 
             @Override
-            public boolean acceptEvent(final Eventable eventable, final Object... args)
-                    throws Exception {
+            public boolean acceptEvent(final Eventable eventable, final Object... args) {
                 try {
                     return ctx.processEvent(eventable, args);
                 }
