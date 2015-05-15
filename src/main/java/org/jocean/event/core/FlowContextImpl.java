@@ -77,13 +77,13 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
 
 	@SuppressWarnings("unchecked")
 	public void setReactors(final Object[] reactors) {
-        this._eventNameAware = InterfaceUtils.compositeByType(reactors, EventNameAware.class);
-        this._eventHandlerAware = InterfaceUtils.compositeByType(reactors, EventHandlerAware.class);
-        this._endReasonProvider = InterfaceUtils.compositeByType(reactors, EndReasonProvider.class);
-        this._exectionLoopAware = InterfaceUtils.compositeByType(reactors, ExectionLoopAware.class);
-        this._flowLifecycleListener = InterfaceUtils.compositeByType(reactors, FlowLifecycleListener.class);
+        this._eventNameAware = InterfaceUtils.compositeIncludeType(reactors, EventNameAware.class);
+        this._eventHandlerAware = InterfaceUtils.compositeIncludeType(reactors, EventHandlerAware.class);
+        this._endReasonProvider = InterfaceUtils.compositeIncludeType(reactors, EndReasonProvider.class);
+        this._exectionLoopAware = InterfaceUtils.compositeIncludeType(reactors, ExectionLoopAware.class);
+        this._flowLifecycleListener = InterfaceUtils.compositeIncludeType(reactors, FlowLifecycleListener.class);
         this._flowStateChangedListener = 
-        		InterfaceUtils.compositeByType(reactors, FlowStateChangedListener.class);
+        		InterfaceUtils.compositeIncludeType(reactors, FlowStateChangedListener.class);
         
         if (null != this._endReasonProvider) {
         	this._endReasonProvider.setEndReasonAware(new EndReasonAware(){
