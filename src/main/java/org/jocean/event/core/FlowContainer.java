@@ -86,7 +86,7 @@ public class FlowContainer {
         final EventReceiver newReceiver = genEventReceiverWithCtx(name, ctx);
         
         final FlowLifecycleListener lifecycleListener = 
-        		InterfaceUtils.compositeIncludeType(reactors, FlowLifecycleListener.class);
+        		InterfaceUtils.compositeIncludeType(FlowLifecycleListener.class, reactors);
 		if (null!=lifecycleListener) {
 			try {
 				lifecycleListener.afterEventReceiverCreated(newReceiver);
