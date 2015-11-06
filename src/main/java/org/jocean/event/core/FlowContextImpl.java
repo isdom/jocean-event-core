@@ -27,6 +27,7 @@ import org.jocean.idiom.ArgsHandler;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.InterfaceUtils;
+import org.jocean.idiom.JOArrays;
 import org.jocean.idiom.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,12 +87,15 @@ public class FlowContextImpl implements FlowContext, Comparable<FlowContextImpl>
         		InterfaceUtils.compositeIncludeType(FlowStateChangedListener.class, reactors);
         
         if (null != this._endReasonProvider) {
-        	this._endReasonProvider.setEndReasonAware(new EndReasonAware(){
-				@Override
-				public void setEndReason(final Object endreason) {
-					_reason = endreason;
-				}});
+        	this._endReasonProvider.setEndReasonAware(
+    	        InterfaceUtils.compositeIncludeType(EndReasonAware.class, 
+                    JOArrays.addFirst(Object[].class, reactors, new EndReasonAware(){
+                        @Override
+                        public void setEndReason(final Object endreason) {
+                            _reason = endreason;
+                        }}) ) );
         }
+        
         if (null!=this._exectionLoopAware) {
             try {
             	this._exectionLoopAware.setExectionLoop(this._exectionLoop);

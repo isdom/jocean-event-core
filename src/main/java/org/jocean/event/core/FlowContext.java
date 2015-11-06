@@ -30,6 +30,7 @@ public interface FlowContext {
 	     *  EventNameAware, 
 			EventHandlerAware, 
 			EndReasonProvider,
+			EndReasonAware,
 			ExectionLoopAware,
 			FlowLifecycleListener, 
 			FlowStateChangedListener
