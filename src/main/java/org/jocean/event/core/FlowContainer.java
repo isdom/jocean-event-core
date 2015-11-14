@@ -22,9 +22,10 @@ import org.jocean.idiom.COWCompositeSupport;
 import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.InterfaceUtils;
-import org.jocean.idiom.Visitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import rx.functions.Action1;
 
 
 /**
@@ -202,9 +203,9 @@ public class FlowContainer {
 			final List<Object> newReactors = new ArrayList<>();
 			newReactors.addAll(Arrays.asList(reactors));
 			newReactors.add(hookOnFlowCtxDestoryed(newCtx));
-			this._reactorBuilderSupport.foreachComponent(new Visitor<ReactorBuilder> () {
+			this._reactorBuilderSupport.foreachComponent(new Action1<ReactorBuilder> () {
 				@Override
-				public void visit(final ReactorBuilder builder) throws Exception {
+				public void call(final ReactorBuilder builder) {
 					final Object[] ret = builder.buildReactors(newCtx);
 					if (null!=ret && ret.length>0) {
 						newReactors.addAll(Arrays.asList(ret));
