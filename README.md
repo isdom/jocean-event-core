@@ -22,6 +22,17 @@ TODO:
             
      该段代码，存在多线程时，_pendingEvents中的events没有全部处理完成。TO fix
   
+2015-11-20: release 0.1.5 版本
+    1、支持构造Flow时, 传入 EndReasonAware 实例，来接收 Flow 中输出的 EndReason
+    2、添加addReactorBuilder/removeReactorBuilder，可从外部为特定FlowContext添加反应器(reactor)
+    3、增加根据FlowContext实例返回 多个reactor的 ReactorBuilder接口 
+    4、去掉冗余的FlowTracker & FlowStateChangeListener，使用FlowStateChangedListener实现等价效果
+    5、interface rename: EventReceiverSource --> EventEngine
+    6、支持新增flow业务流程类实现FlowStateChangedListener接口，在状态改变(包括流程结束时)触发对应的onStateChanged方法
+    7、当 flow的业务处理方法返回BizStep.CURRENT_BIZSTEP时，代表不改变当前的BizStep(EventHandler)
+    8、对 _isAlive 标记的修改增加 读写锁保护，确保在 _isAlive 从 true --> false 过程中（Destroying），_pendingEvents 不会被修改
+    9、用 gradle 做构建工具
+    
 2014-08-19： release 0.1.4 版本：
   1、在FlowContextImpl实现中支持 Eventable 具象类实现 ArgsHandler接口，此时会调用ArgsHandler.beforeInvoke / ArgsHandler.afterInvoke 对参数进行生命周期的保护
 
