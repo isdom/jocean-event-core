@@ -23,6 +23,7 @@ TODO:
      该段代码，存在多线程时，_pendingEvents中的events没有全部处理完成。TO fix
   
 2015-11-20: release 0.1.5 版本
+    
     1、支持构造Flow时, 传入 EndReasonAware 实例，来接收 Flow 中输出的 EndReason
     2、添加addReactorBuilder/removeReactorBuilder，可从外部为特定FlowContext添加反应器(reactor)
     3、增加根据FlowContext实例返回 多个reactor的 ReactorBuilder接口 
@@ -34,8 +35,10 @@ TODO:
     9、用 gradle 做构建工具
     
 2014-08-19： release 0.1.4 版本：
-  1、在FlowContextImpl实现中支持 Eventable 具象类实现 ArgsHandler接口，此时会调用ArgsHandler.beforeInvoke / ArgsHandler.afterInvoke 对参数进行生命周期的保护
+    
+    1、在FlowContextImpl实现中支持 Eventable 具象类实现 ArgsHandler接口，此时会调用ArgsHandler.beforeInvoke / ArgsHandler.afterInvoke 对参数进行生命周期的保护
 
 2014-06-11： release 0.1.3 版本：
-  1、将 AbstractFlow.fireDelayEventAndPush 变更为 public 方法
-  2、http://rdassist.widget-inc.com:65480/browse/CHANNEL-103:改进 AbstractFlow 中的一次性定时器 启动和移除API，将内部保存定时器任务更改为由外部提供Collection<Detachable>来保存定时器任务
+    
+    1、将 AbstractFlow.fireDelayEventAndPush 变更为 public 方法
+    2、http://rdassist.widget-inc.com:65480/browse/CHANNEL-103:改进 AbstractFlow 中的一次性定时器 启动和移除API，将内部保存定时器任务更改为由外部提供Collection<Detachable>来保存定时器任务
